@@ -1,0 +1,260 @@
+.job-board {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.job-board-header {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 40px 0;
+  text-align: center;
+  color: white;
+}
+
+.header-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.main-title {
+  font-size: 3rem;
+  font-weight: 700;
+  margin: 0 0 12px 0;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.main-subtitle {
+  font-size: 1.2rem;
+  margin: 0 0 24px 0;
+  opacity: 0.9;
+  font-weight: 300;
+}
+
+.stats {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  backdrop-filter: blur(5px);
+}
+
+.stat-item.filtered {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.job-board-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 20px;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.filters-sidebar {
+  position: relative;
+}
+
+.jobs-main {
+  min-height: 400px;
+}
+
+.jobs-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.loading-container,
+.error-container,
+.no-jobs-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
+  color: white;
+  padding: 40px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-left: 4px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-container h2 {
+  margin: 0 0 16px 0;
+  font-size: 1.5rem;
+}
+
+.error-container p {
+  margin: 0 0 24px 0;
+  opacity: 0.9;
+}
+
+.retry-button {
+  background: white;
+  color: #667eea;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.retry-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.no-jobs-container {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.no-jobs-container h3 {
+  margin: 0 0 12px 0;
+  font-size: 1.25rem;
+}
+
+.no-jobs-container p {
+  margin: 0;
+  opacity: 0.8;
+}
+
+.mobile-filter-toggle {
+  display: none;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 25px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 20px;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  backdrop-filter: blur(5px);
+}
+
+.mobile-filter-toggle:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.mobile-filter-toggle svg {
+  stroke: currentColor;
+}
+
+.filter-indicator {
+  color: #fbbf24;
+  font-size: 1.2rem;
+  margin-left: 4px;
+}
+
+.mobile-filter-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 998;
+}
+
+@media (max-width: 768px) {
+  .mobile-filter-toggle {
+    display: flex;
+  }
+
+  .filters-sidebar {
+    position: fixed;
+    top: 0;
+    left: -100%;
+    width: 280px;
+    height: 100vh;
+    background: white;
+    z-index: 999;
+    overflow-y: auto;
+    transition: left 0.3s ease;
+    padding-top: 20px;
+  }
+
+  .filters-sidebar.show {
+    left: 0;
+  }
+
+  .filters-sidebar.show + .mobile-filter-overlay {
+    display: block;
+  }
+
+  .job-board-content {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 20px;
+  }
+
+  .main-title {
+    font-size: 2rem;
+  }
+
+  .main-subtitle {
+    font-size: 1rem;
+  }
+
+  .stats {
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .stat-item {
+    font-size: 0.8rem;
+    padding: 6px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-content {
+    padding: 0 16px;
+  }
+
+  .job-board-content {
+    padding: 16px;
+  }
+
+  .main-title {
+    font-size: 1.75rem;
+  }
+
+  .mobile-filter-toggle {
+    font-size: 0.85rem;
+    padding: 10px 16px;
+  }
+}

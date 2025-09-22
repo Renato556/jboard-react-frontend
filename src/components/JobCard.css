@@ -1,0 +1,151 @@
+.job-card {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.job-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.job-card-header {
+  margin-bottom: 12px;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 12px;
+}
+
+.job-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 6px 0;
+  line-height: 1.3;
+}
+
+.job-company {
+  font-size: 0.9rem;
+  color: #6b7280;
+  font-weight: 500;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.badges-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.job-details {
+  margin-bottom: 16px;
+}
+
+.job-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 4px 0;
+}
+
+.job-detail-row:last-child {
+  margin-bottom: 0;
+}
+
+.detail-label {
+  font-weight: 500;
+  color: #374151;
+  font-size: 0.85rem;
+}
+
+.seniority-badge {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.seniority-badge.junior {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.seniority-badge.mid {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.seniority-badge.senior {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.seniority-badge.lead,
+.seniority-badge.principal {
+  background-color: #fde2e8;
+  color: #be185d;
+}
+
+.field-badge {
+  padding: 3px 8px;
+  background-color: #f3e8ff;
+  color: #7c3aed;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.employment-badge {
+  padding: 3px 8px;
+  background-color: #ecfdf5;
+  color: #065f46;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.workplace-badge {
+  padding: 3px 8px;
+  background-color: #fef7ff;
+  color: #a21caf;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.employment-type,
+.workplace-type,
+.published-date,
+.deadline {
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.apply-button {
+  width: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.apply-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(102, 126, 234, 0.4);
+}
+
+.apply-button:active {
+  transform: translateY(0);
+}
