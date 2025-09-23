@@ -7,7 +7,21 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.js'],
-    css: true,
+    css: false,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'node_modules/',
+        'src/test/',
+        'src/main.jsx',
+        'eslint.config.js',
+        '**/*.css'
+      ],
+      include: [
+        'src/**/*.{js,jsx,ts,tsx}'
+      ]
+    }
   },
   resolve: {
     alias: {
