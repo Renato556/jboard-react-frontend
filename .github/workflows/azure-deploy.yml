@@ -80,8 +80,6 @@ jobs:
             --name ${{ env.CONTAINER_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --image $IMAGE_TAG \
-            --target-port ${{ env.TARGET_PORT }} \
-            --ingress external \
             --min-replicas 1 \
             --max-replicas 3
         else
