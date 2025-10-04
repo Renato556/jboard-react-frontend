@@ -13,10 +13,12 @@ env:
   RESOURCE_GROUP: jboard-microservices
   CONTAINER_APP_ENVIRONMENT: jboard-environment
   IMAGE_NAME: jboard-react-frontend
+  TARGET_PORT: 80
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
 
     steps:
     - name: Checkout code
@@ -67,22 +69,29 @@ jobs:
         platforms: linux/amd64
 
     - name: Deploy to Azure Container Apps
+      id: deploy
       run: |
+        IMAGE_TAG="${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+        
         # Check if container app exists
         if az containerapp show --name ${{ env.CONTAINER_APP_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} &>/dev/null; then
           echo "Container App exists, updating..."
           az containerapp update \
             --name ${{ env.CONTAINER_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --image ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            --image $IMAGE_TAG \
+            --target-port ${{ env.TARGET_PORT }} \
+            --ingress external \
+            --min-replicas 1 \
+            --max-replicas 3
         else
           echo "Container App does not exist, creating..."
           az containerapp create \
             --name ${{ env.CONTAINER_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --environment ${{ env.CONTAINER_APP_ENVIRONMENT }} \
-            --image ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }} \
-            --target-port 3000 \
+            --image $IMAGE_TAG \
+            --target-port ${{ env.TARGET_PORT }} \
             --ingress external \
             --registry-server ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io \
             --registry-username ${{ secrets.ACR_USERNAME }} \
@@ -92,3 +101,49 @@ jobs:
             --min-replicas 1 \
             --max-replicas 3
         fi
+        
+        # Get the FQDN
+        echo "Retrieving application URL..."
+        FQDN=$(az containerapp show \
+          --name ${{ env.CONTAINER_APP_NAME }} \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --query properties.configuration.ingress.fqdn \
+          --output tsv)
+        
+        if [ -z "$FQDN" ]; then
+          echo "ERROR: Failed to retrieve FQDN"
+          exit 1
+        fi
+        
+        echo "fqdn=$FQDN" >> $GITHUB_OUTPUT
+        echo "Application URL: https://$FQDN"
+
+    - name: Wait for application to be ready
+      run: |
+        echo "Waiting for application to become healthy..."
+        URL="https://${{ steps.deploy.outputs.fqdn }}"
+        
+        for i in {1..30}; do
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || echo "000")
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✓ Application is ready and responding with HTTP 200"
+            exit 0
+          fi
+          echo "Attempt $i/30: HTTP $HTTP_CODE - waiting 10s..."
+          sleep 10
+        done
+        
+        echo "WARNING: Application did not respond with HTTP 200 after 5 minutes"
+        echo "Please check the application manually at: $URL"
+
+    - name: Deployment Summary
+      if: always()
+      run: |
+        echo "# 🚀 Frontend Deployment Complete" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Application URL:** https://${{ steps.deploy.outputs.fqdn }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Image:** \`${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Resource Group:** ${{ env.RESOURCE_GROUP }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Container App:** ${{ env.CONTAINER_APP_NAME }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Access your application at: **https://${{ steps.deploy.outputs.fqdn }}**" >> $GITHUB_STEP_SUMMARY
