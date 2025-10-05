@@ -1,4 +1,4 @@
-import axios from 'axios';
+import api from './api.js';
 import { API_CONFIG } from '../config.js';
 
 const TOKEN_KEY = 'jboard_token';
@@ -6,16 +6,11 @@ const TOKEN_KEY = 'jboard_token';
 export const authService = {
   async login(username, password) {
     try {
-      const response = await axios.post(
-        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.LOGIN}`,
+      const response = await api.post(
+        API_CONFIG.ENDPOINTS.LOGIN,
         {
           username,
           password
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
         }
       );
 
@@ -23,7 +18,6 @@ export const authService = {
       this.setToken(token);
       return { success: true, token };
     } catch (error) {
-      console.error('Erro no login:', error);
       if (error.response?.status === 401) {
         throw new Error('Credenciais inválidas');
       }
@@ -33,22 +27,16 @@ export const authService = {
 
   async register(username, password) {
     try {
-      await axios.post(
-        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.REGISTER}`,
+      await api.post(
+        API_CONFIG.ENDPOINTS.REGISTER,
         {
           username,
           password
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
         }
       );
 
       return { success: true };
     } catch (error) {
-      console.error('Erro no registro:', error);
       if (error.response?.status === 409) {
         throw new Error('Um usuário já existe com esse nome');
       }
@@ -61,23 +49,16 @@ export const authService = {
 
   async updatePassword(oldPassword, newPassword) {
     try {
-      await axios.put(
-        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.UPDATE_PASSWORD}`,
+      await api.put(
+        API_CONFIG.ENDPOINTS.UPDATE_PASSWORD,
         {
           oldPassword,
           newPassword
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.getToken()}`
-          }
         }
       );
 
       return { success: true };
     } catch (error) {
-      console.error('Erro ao atualizar senha:', error);
       if (error.response?.status === 403) {
         throw new Error('Senha atual incorreta');
       }
@@ -90,20 +71,11 @@ export const authService = {
 
   async deleteAccount() {
     try {
-      await axios.delete(
-        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.DELETE_ACCOUNT}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.getToken()}`
-          }
-        }
-      );
+      await api.delete(API_CONFIG.ENDPOINTS.DELETE_ACCOUNT);
 
       this.removeToken();
       return { success: true };
     } catch (error) {
-      console.error('Erro ao deletar conta:', error);
       if (error.response?.status === 401) {
         throw new Error('Não autorizado. Faça login novamente.');
       }

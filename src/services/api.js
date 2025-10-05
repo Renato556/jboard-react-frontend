@@ -23,13 +23,25 @@ api.interceptors.request.use(
   }
 );
 
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    if (error.response?.status === 401 && authService.isAuthenticated()) {
+      authService.logout();
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const jobsService = {
   async getJobs() {
     try {
       const response = await api.get(API_CONFIG.ENDPOINTS.JOBS);
       return response.data;
-    } catch (error) {
-      console.error('Erro ao buscar vagas:', error);
+    } catch {
       throw new Error('Falha ao carregar as vagas de emprego');
     }
   }
