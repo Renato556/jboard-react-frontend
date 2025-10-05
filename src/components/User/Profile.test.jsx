@@ -44,7 +44,7 @@ describe('Profile', () => {
       authService.getUserRole.mockReturnValue('free');
       render(<Profile onLogout={mockOnLogout} />);
 
-      expect(screen.getByText('Minhas Skills')).toBeInTheDocument();
+      expect(screen.getByText('Minhas Habilidades')).toBeInTheDocument();
       expect(screen.getByText((content, element) => {
         return element?.textContent === 'Atualize para o plano Premium para acessar os recursos de gerenciamento de skills.';
       })).toBeInTheDocument();
@@ -62,8 +62,8 @@ describe('Profile', () => {
         expect(screen.getByText('react')).toBeInTheDocument();
       });
 
-      expect(screen.getByLabelText(/adicionar nova habilidade/i)).toBeInTheDocument();
-      expect(screen.getByText(/adicione uma habilidade por vez/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/cadastrar nova habilidade/i)).toBeInTheDocument();
+      expect(screen.getByText(/cadastre uma habilidade por vez/i)).toBeInTheDocument();
     });
 
     it('adds new skill for premium users', async () => {
@@ -219,7 +219,7 @@ describe('Profile', () => {
       render(<Profile onLogout={mockOnLogout} />);
 
       await waitFor(() => {
-        expect(screen.getByText(/nenhuma skill encontrada/i)).toBeInTheDocument();
+        expect(screen.getByText(/nenhuma habilidade encontrada/i)).toBeInTheDocument();
       });
     });
   });

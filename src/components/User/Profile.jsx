@@ -349,7 +349,7 @@ const Profile = ({ onLogout }) => {
         )}
 
         <div className="skills-section">
-          <h2>Minhas Skills</h2>
+          <h2>Minhas Habilidades</h2>
           {userRole !== 'premium' && (
             <div className="upgrade-message">
               <p>Atualize para o plano <strong>Premium</strong> para acessar os recursos de gerenciamento de skills.</p>
@@ -374,7 +374,7 @@ const Profile = ({ onLogout }) => {
                 ) : (
                   skills.length === 0 ? (
                     <div className="no-skills-message">
-                      <p>Nenhuma skill encontrada. Adicione uma nova skill usando o formulário abaixo.</p>
+                      <p>Nenhuma habilidade encontrada. Adicione uma nova habilidade usando o formulário abaixo.</p>
                     </div>
                   ) : (
                     skills.map((skill, index) => (
@@ -405,8 +405,8 @@ const Profile = ({ onLogout }) => {
 
               <form className="add-skill-form" onSubmit={handleAddSkill}>
                 <div className="form-group">
-                  <label htmlFor="newSkill">Adicionar nova habilidade:</label>
-                  <p className="skill-instruction">Adicione uma habilidade por vez. Digite o nome da habilidade e clique em "Adicionar".</p>
+                  <label htmlFor="newSkill">Cadastrar nova habilidade:</label>
+                  <p className="skill-instruction">Cadastre uma habilidade por vez. Digite a habilidade e clique em "Adicionar".</p>
                   <div className="input-group">
                     <input
                       type="text"
