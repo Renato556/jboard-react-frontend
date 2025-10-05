@@ -114,6 +114,32 @@ jobs:
         registryUsername: ${{ secrets.ACR_USERNAME }}
         registryPassword: ${{ secrets.ACR_PASSWORD }}
 
+    - name: Get deployment URL
+      id: get-url
+      run: |
+        # Try to get FQDN from deploy step output first
+        DEPLOY_FQDN="${{ steps.deploy.outputs.fqdn }}"
+        
+        if [ -n "$DEPLOY_FQDN" ] && [ "$DEPLOY_FQDN" != "null" ]; then
+          echo "fqdn=$DEPLOY_FQDN" >> $GITHUB_OUTPUT
+          echo "✅ Got FQDN from deploy output: $DEPLOY_FQDN"
+        else
+          echo "⚠️ Deploy output FQDN is empty, querying Azure directly..."
+          FQDN=$(az containerapp show \
+            --name ${{ env.CONTAINER_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --query "properties.configuration.ingress.fqdn" \
+            --output tsv)
+          
+          if [ -n "$FQDN" ] && [ "$FQDN" != "null" ]; then
+            echo "fqdn=$FQDN" >> $GITHUB_OUTPUT
+            echo "✅ Got FQDN from Azure CLI: $FQDN"
+          else
+            echo "fqdn=your-app-url-not-available" >> $GITHUB_OUTPUT
+            echo "❌ Could not retrieve FQDN"
+          fi
+        fi
+
     - name: Deployment Summary
       if: always()
       run: |
@@ -122,10 +148,9 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Your application is ready!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "🌐 **Access your app:** https://${{ steps.deploy.outputs.fqdn }}" >> $GITHUB_STEP_SUMMARY
+          echo "🌐 **Access your app:** https://${{ steps.get-url.outputs.fqdn }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📋 **Quick Info:**" >> $GITHUB_STEP_SUMMARY
-          echo "- Frontend: https://${{ steps.deploy.outputs.fqdn }}" >> $GITHUB_STEP_SUMMARY
           echo "- Backend: ${{ needs.test-and-setup.outputs.backend-url }}" >> $GITHUB_STEP_SUMMARY
           echo "- Version: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
         else
