@@ -32,11 +32,6 @@ const Register = ({ onRegisterSuccess, onBackToLogin }) => {
       return;
     }
 
-    if (formData.password.length < 3) {
-      setError('A senha deve ter pelo menos 3 caracteres');
-      return;
-    }
-
     setIsLoading(true);
     setError('');
 

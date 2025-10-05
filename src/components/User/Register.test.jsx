@@ -103,24 +103,6 @@ describe('Register', () => {
     expect(authService.register).not.toHaveBeenCalled();
   });
 
-  it('shows error when password is too short', async () => {
-    render(<Register onRegisterSuccess={mockOnRegisterSuccess} onBackToLogin={mockOnBackToLogin} />);
-
-    const usernameInput = screen.getByLabelText('Usuário:');
-    const passwordInput = screen.getByLabelText('Senha:');
-    const submitButton = screen.getByRole('button', { name: 'Criar' });
-
-    fireEvent.change(usernameInput, { target: { value: 'testuser' } });
-    fireEvent.change(passwordInput, { target: { value: 'ab' } });
-    fireEvent.click(submitButton);
-
-    await waitFor(() => {
-      expect(screen.getByText('A senha deve ter pelo menos 3 caracteres')).toBeInTheDocument();
-    });
-
-    expect(authService.register).not.toHaveBeenCalled();
-  });
-
   it('accepts password with exactly 3 characters', async () => {
     authService.register.mockResolvedValue();
     render(<Register onRegisterSuccess={mockOnRegisterSuccess} onBackToLogin={mockOnBackToLogin} />);
