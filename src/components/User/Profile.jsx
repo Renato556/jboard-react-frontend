@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { authService } from '../../services/auth.js';
 import './Profile.css';
 
@@ -15,6 +15,91 @@ const Profile = ({ onLogout }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  const [skills, setSkills] = useState([]);
+  const [newSkill, setNewSkill] = useState('');
+  const [skillsLoading, setSkillsLoading] = useState(false);
+  const [userRole, setUserRole] = useState('free');
+
+  useEffect(() => {
+    const role = authService.getUserRole();
+    setUserRole(role);
+    
+    if (role === 'premium') {
+      loadSkills();
+    }
+  }, []);
+
+  const loadSkills = async () => {
+    try {
+      setSkillsLoading(true);
+      const response = await authService.getSkills();
+      setSkills(response.skills || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSkillsLoading(false);
+    }
+  };
+
+  const handleAddSkill = async (e) => {
+    e.preventDefault();
+    
+    if (!newSkill.trim()) {
+      setError('Por favor, digite uma skill');
+      return;
+    }
+
+    if (skills.includes(newSkill.trim().toLowerCase())) {
+      setError('Esta skill já foi adicionada');
+      return;
+    }
+
+    try {
+      setSkillsLoading(true);
+      setError('');
+      await authService.addSkill(newSkill.trim());
+      await loadSkills();
+      setNewSkill('');
+      setSuccessMessage('Skill adicionada com sucesso!');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSkillsLoading(false);
+    }
+  };
+
+  const handleRemoveSkill = async (skill) => {
+    try {
+      setSkillsLoading(true);
+      setError('');
+      await authService.removeSkill(skill);
+      await loadSkills();
+      setSuccessMessage('Skill removida com sucesso!');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSkillsLoading(false);
+    }
+  };
+
+  const handleRemoveAllSkills = async () => {
+    if (!window.confirm('Tem certeza que deseja remover todas as skills?')) {
+      return;
+    }
+
+    try {
+      setSkillsLoading(true);
+      setError('');
+      await authService.removeAllSkills();
+      await loadSkills();
+      setSuccessMessage('Todas as skills foram removidas!');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSkillsLoading(false);
+    }
+  };
 
   const handlePasswordChange = (e) => {
     const { name, value } = e.target;
@@ -262,6 +347,98 @@ const Profile = ({ onLogout }) => {
             </div>
           </div>
         )}
+
+        <div className="skills-section">
+          <h2>Minhas Skills</h2>
+          {userRole !== 'premium' && (
+            <div className="upgrade-message">
+              <p>Atualize para o plano <strong>Premium</strong> para acessar os recursos de gerenciamento de skills.</p>
+              <button
+                className="upgrade-button disabled"
+                onClick={() => {}}
+              >
+                Ver Planos
+              </button>
+            </div>
+          )}
+
+          {userRole === 'premium' && (
+            <div className="skills-content">
+              <div className="skills-list">
+                {skillsLoading ? (
+                  <div className="loading-skeleton">
+                    <div className="skeleton-item"></div>
+                    <div className="skeleton-item"></div>
+                    <div className="skeleton-item"></div>
+                  </div>
+                ) : (
+                  skills.length === 0 ? (
+                    <div className="no-skills-message">
+                      <p>Nenhuma skill encontrada. Adicione uma nova skill usando o formulário abaixo.</p>
+                    </div>
+                  ) : (
+                    skills.map((skill, index) => (
+                      <div className="skill-item" key={index}>
+                        <span className="skill-name">{skill}</span>
+                        <button
+                          className="remove-skill-button"
+                          onClick={() => handleRemoveSkill(skill)}
+                          disabled={skillsLoading}
+                        >
+                          {skillsLoading ? (
+                            <svg className="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="31.41592653589793 31.41592653589793">
+                                <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
+                              </circle>
+                            </svg>
+                          ) : (
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M6 18L18 6M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                   ))
+                  )
+                )}
+              </div>
+
+              <form className="add-skill-form" onSubmit={handleAddSkill}>
+                <div className="form-group">
+                  <label htmlFor="newSkill">Adicionar nova habilidade:</label>
+                  <p className="skill-instruction">Adicione uma habilidade por vez. Digite o nome da habilidade e clique em "Adicionar".</p>
+                  <div className="input-group">
+                    <input
+                      type="text"
+                      id="newSkill"
+                      value={newSkill}
+                      onChange={(e) => setNewSkill(e.target.value)}
+                      disabled={skillsLoading}
+                      placeholder="Digite uma nova habilidade"
+                    />
+                    <button
+                      type="submit"
+                      className="add-skill-button"
+                      disabled={skillsLoading}
+                    >
+                      {skillsLoading ? 'Adicionando...' : 'Adicionar'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              {skills.length > 0 && (
+                <button
+                  className="remove-all-skills-button"
+                  onClick={handleRemoveAllSkills}
+                  disabled={skillsLoading}
+                >
+                  {skillsLoading ? 'Removendo...' : 'Limpar habilidades'}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

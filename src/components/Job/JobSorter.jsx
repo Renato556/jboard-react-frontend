@@ -3,8 +3,8 @@ import './JobSorter.css';
 
 const JobSorter = ({ sortBy, onSortChange }) => {
   const sortOptions = [
-    { value: 'publishedDate-desc', label: 'Mais recentes (publicação)' },
-    { value: 'publishedDate-asc', label: 'Mais antigas (publicação)' },
+    { value: 'publishedDate-desc', label: 'Mais novas' },
+    { value: 'publishedDate-asc', label: 'Mais antigas' },
     { value: 'updatedAt-desc', label: 'Atualizadas recentemente' },
     { value: 'updatedAt-asc', label: 'Atualizadas há mais tempo' }
   ];

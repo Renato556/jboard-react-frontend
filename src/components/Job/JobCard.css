@@ -139,6 +139,10 @@
   font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .apply-button:hover {
@@ -148,4 +152,77 @@
 
 .apply-button:active {
   transform: translateY(0);
+}
+
+.ai-analyze-button {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ai-analyze-button:hover:not(.disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(16, 185, 129, 0.4);
+}
+
+.ai-analyze-button:active:not(.disabled) {
+  transform: translateY(0);
+}
+
+.ai-analyze-button.disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+  border: 2px solid #e5e7eb;
+}
+
+.ai-analyze-button.disabled svg {
+  stroke: #9ca3af;
+}
+
+.ai-analyze-button svg {
+  stroke: currentColor;
+}
+
+.apply-button svg {
+  stroke: currentColor;
+}
+
+.job-actions {
+  display: flex;
+  gap: 8px;
+  flex-direction: column;
+}
+
+@media (min-width: 640px) {
+  .job-actions {
+    flex-direction: row;
+  }
+
+  .apply-button,
+  .ai-analyze-button {
+    flex: 1;
+  }
+}
+
+@media (max-width: 639px) {
+  .job-actions {
+    gap: 6px;
+  }
+
+  .apply-button,
+  .ai-analyze-button {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
 }

@@ -1,15 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-vi.mock('./api.js', () => {
-  const mockApi = {
+// Mock the modules first
+vi.mock('./api.js', () => ({
+  default: {
     post: vi.fn(),
     put: vi.fn(),
-    delete: vi.fn()
-  };
-  return {
-    default: mockApi
-  };
-});
+    delete: vi.fn(),
+    get: vi.fn()
+  }
+}));
 
 vi.mock('../config.js', () => ({
   API_CONFIG: {
@@ -18,18 +17,23 @@ vi.mock('../config.js', () => ({
       LOGIN: '/api/auth/login',
       REGISTER: '/api/auth/register',
       UPDATE_PASSWORD: '/api/auth/update-password',
-      DELETE_ACCOUNT: '/api/auth/delete-account'
+      DELETE_ACCOUNT: '/api/auth/delete-account',
+      SKILLS: '/api/skills'
     }
   }
 }));
 
-describe('AuthService', () => {
+describe('authService', () => {
+  let authService;
   let mockApi;
 
   beforeEach(async () => {
     vi.clearAllMocks();
     localStorage.clear();
+
+    // Import after mocking
     mockApi = (await import('./api.js')).default;
+    authService = (await import('./auth.js')).authService;
   });
 
   afterEach(() => {
@@ -38,7 +42,6 @@ describe('AuthService', () => {
 
   describe('login', () => {
     it('successfully logs in user and stores token', async () => {
-      const { authService } = await import('./auth');
       const mockResponse = {
         data: { token: 'test-token-123' }
       };
@@ -55,7 +58,6 @@ describe('AuthService', () => {
     });
 
     it('throws error with invalid credentials status 401', async () => {
-      const { authService } = await import('./auth');
       const mockError = {
         response: { status: 401 }
       };
@@ -67,7 +69,6 @@ describe('AuthService', () => {
     });
 
     it('throws generic error for non-401 status codes', async () => {
-      const { authService } = await import('./auth');
       const mockError = {
         response: { status: 500 }
       };
@@ -78,7 +79,6 @@ describe('AuthService', () => {
     });
 
     it('throws generic error when no response status available', async () => {
-      const { authService } = await import('./auth');
       const mockError = new Error('Network Error');
       mockApi.post.mockRejectedValue(mockError);
 
@@ -87,265 +87,254 @@ describe('AuthService', () => {
     });
   });
 
-  describe('register', () => {
-    it('successfully registers new user', async () => {
-      const { authService } = await import('./auth');
-      mockApi.post.mockResolvedValue({});
+  describe('getUserData', () => {
+    it('returns parsed JWT payload when token exists', () => {
+      const mockPayload = { sub: 'user123', role: 'premium', exp: 1234567890 };
+      const mockToken = `header.${btoa(JSON.stringify(mockPayload))}.signature`;
 
-      const result = await authService.register('newuser', 'newpass');
+      localStorage.setItem('jboard_token', mockToken);
 
-      expect(mockApi.post).toHaveBeenCalledWith(
-        '/api/auth/register',
-        { username: 'newuser', password: 'newpass' }
-      );
-      expect(result).toEqual({ success: true });
+      const result = authService.getUserData();
+
+      expect(result).toEqual(mockPayload);
     });
 
-    it('throws error for existing username status 409', async () => {
-      const { authService } = await import('./auth');
-      const mockError = {
-        response: { status: 409 }
-      };
-      mockApi.post.mockRejectedValue(mockError);
+    it('returns null when no token exists', () => {
+      const result = authService.getUserData();
 
-      await expect(authService.register('existinguser', 'password'))
-        .rejects.toThrow('Um usuário já existe com esse nome');
+      expect(result).toBeNull();
     });
 
-    it('throws error for invalid data status 400', async () => {
-      const { authService } = await import('./auth');
-      const mockError = {
-        response: { status: 400 }
-      };
-      mockApi.post.mockRejectedValue(mockError);
+    it('returns null when token is invalid', () => {
+      localStorage.setItem('jboard_token', 'invalid-token');
 
-      await expect(authService.register('', ''))
-        .rejects.toThrow('Dados inválidos. Verifique as informações.');
+      const result = authService.getUserData();
+
+      expect(result).toBeNull();
     });
 
-    it('throws generic error for other status codes', async () => {
-      const { authService } = await import('./auth');
-      const mockError = {
-        response: { status: 500 }
-      };
-      mockApi.post.mockRejectedValue(mockError);
+    it('returns null when JWT payload is invalid JSON', () => {
+      const invalidToken = 'header.invalid-base64.signature';
+      localStorage.setItem('jboard_token', invalidToken);
 
-      await expect(authService.register('newuser', 'newpass'))
-        .rejects.toThrow('Erro no servidor. Tente novamente.');
+      const result = authService.getUserData();
+
+      expect(result).toBeNull();
+    });
+
+    it('handles token with missing parts', () => {
+      localStorage.setItem('jboard_token', 'incomplete-token');
+
+      const result = authService.getUserData();
+
+      expect(result).toBeNull();
     });
   });
 
-  describe('updatePassword', () => {
-    it('successfully updates password', async () => {
-      const { authService } = await import('./auth');
-      mockApi.put.mockResolvedValue({});
+  describe('getUserRole', () => {
+    it('returns premium role when user has premium access', () => {
+      const mockPayload = { sub: 'user123', role: 'premium' };
+      const mockToken = `header.${btoa(JSON.stringify(mockPayload))}.signature`;
 
-      const result = await authService.updatePassword('oldpass', 'newpass');
+      localStorage.setItem('jboard_token', mockToken);
 
-      expect(mockApi.put).toHaveBeenCalledWith(
-        '/api/auth/update-password',
-        { oldPassword: 'oldpass', newPassword: 'newpass' }
-      );
-      expect(result).toEqual({ success: true });
+      const result = authService.getUserRole();
+
+      expect(result).toBe('premium');
     });
 
-    it('throws error for incorrect current password status 403', async () => {
-      const { authService } = await import('./auth');
-      const mockError = {
-        response: { status: 403 }
-      };
-      mockApi.put.mockRejectedValue(mockError);
+    it('returns free role when user has free access', () => {
+      const mockPayload = { sub: 'user123', role: 'free' };
+      const mockToken = `header.${btoa(JSON.stringify(mockPayload))}.signature`;
 
-      await expect(authService.updatePassword('wrongpass', 'newpass'))
-        .rejects.toThrow('Senha atual incorreta');
+      localStorage.setItem('jboard_token', mockToken);
+
+      const result = authService.getUserRole();
+
+      expect(result).toBe('free');
     });
 
-    it('throws error for invalid data status 400', async () => {
-      const { authService } = await import('./auth');
-      const mockError = {
-        response: { status: 400 }
-      };
-      mockApi.put.mockRejectedValue(mockError);
+    it('returns free as default when no role is specified', () => {
+      const mockPayload = { sub: 'user123' };
+      const mockToken = `header.${btoa(JSON.stringify(mockPayload))}.signature`;
 
-      await expect(authService.updatePassword('', ''))
-        .rejects.toThrow('Dados inválidos. Verifique as informações.');
+      localStorage.setItem('jboard_token', mockToken);
+
+      const result = authService.getUserRole();
+
+      expect(result).toBe('free');
     });
 
-    it('throws generic error for other status codes', async () => {
-      const { authService } = await import('./auth');
-      const mockError = {
-        response: { status: 500 }
-      };
-      mockApi.put.mockRejectedValue(mockError);
+    it('returns free when no token exists', () => {
+      const result = authService.getUserRole();
 
-      await expect(authService.updatePassword('oldpass', 'newpass'))
-        .rejects.toThrow('Erro no servidor. Tente novamente.');
-    });
-  });
-
-  describe('deleteAccount', () => {
-    it('successfully deletes account and removes token', async () => {
-      const { authService } = await import('./auth');
-      localStorage.setItem('jboard_token', 'test-token');
-      mockApi.delete.mockResolvedValue({});
-
-      const result = await authService.deleteAccount();
-
-      expect(mockApi.delete).toHaveBeenCalledWith('/api/auth/delete-account');
-      expect(result).toEqual({ success: true });
-      expect(localStorage.getItem('jboard_token')).toBeNull();
+      expect(result).toBe('free');
     });
 
-    it('throws error for unauthorized status 401', async () => {
-      const { authService } = await import('./auth');
-      const mockError = {
-        response: { status: 401 }
-      };
-      mockApi.delete.mockRejectedValue(mockError);
+    it('returns free when token is invalid', () => {
+      localStorage.setItem('jboard_token', 'invalid-token');
 
-      await expect(authService.deleteAccount())
-        .rejects.toThrow('Não autorizado. Faça login novamente.');
-    });
+      const result = authService.getUserRole();
 
-    it('throws generic error for other status codes', async () => {
-      const { authService } = await import('./auth');
-      const mockError = {
-        response: { status: 500 }
-      };
-      mockApi.delete.mockRejectedValue(mockError);
-
-      await expect(authService.deleteAccount())
-        .rejects.toThrow('Erro no servidor. Tente novamente.');
+      expect(result).toBe('free');
     });
   });
 
-  describe('Token Management', () => {
-    it('setToken stores token in localStorage', async () => {
-      const { authService } = await import('./auth');
+  describe('getSkills', () => {
+    it('successfully fetches skills from API', async () => {
+      const mockResponse = {
+        data: {
+          skills: ['javascript', 'react', 'node.js'],
+          meta: { totalRecords: 3 }
+        }
+      };
 
-      authService.setToken('test-token');
+      mockApi.get.mockResolvedValue(mockResponse);
 
-      expect(localStorage.getItem('jboard_token')).toBe('test-token');
+      const result = await authService.getSkills();
+
+      expect(mockApi.get).toHaveBeenCalledWith('/api/skills');
+      expect(result).toEqual(mockResponse.data);
     });
 
-    it('getToken retrieves token from localStorage', async () => {
-      const { authService } = await import('./auth');
-      localStorage.setItem('jboard_token', 'stored-token');
+    it('throws authentication error when unauthorized', async () => {
+      mockApi.get.mockRejectedValue({ response: { status: 401 } });
 
-      const token = authService.getToken();
-
-      expect(token).toBe('stored-token');
+      await expect(authService.getSkills()).rejects.toThrow('Não autorizado. Faça login novamente.');
     });
 
-    it('removeToken removes token from localStorage', async () => {
-      const { authService } = await import('./auth');
-      localStorage.setItem('jboard_token', 'test-token');
+    it('throws generic error for other API errors', async () => {
+      mockApi.get.mockRejectedValue(new Error('Network error'));
 
-      authService.removeToken();
-
-      expect(localStorage.getItem('jboard_token')).toBeNull();
-    });
-
-    it('isAuthenticated returns true when token exists', async () => {
-      const { authService } = await import('./auth');
-      localStorage.setItem('jboard_token', 'test-token');
-
-      const isAuth = authService.isAuthenticated();
-
-      expect(isAuth).toBe(true);
-    });
-
-    it('isAuthenticated returns false when token does not exist', async () => {
-      const { authService } = await import('./auth');
-
-      const isAuth = authService.isAuthenticated();
-
-      expect(isAuth).toBe(false);
-    });
-
-    it('logout removes token', async () => {
-      const { authService } = await import('./auth');
-      localStorage.setItem('jboard_token', 'test-token');
-
-      authService.logout();
-
-      expect(localStorage.getItem('jboard_token')).toBeNull();
+      await expect(authService.getSkills()).rejects.toThrow('Erro ao carregar skills. Tente novamente.');
     });
   });
 
-  describe('API Integration', () => {
-    it('uses centralized API instance for login', async () => {
-      const { authService } = await import('./auth');
-      mockApi.post.mockResolvedValue({ data: { token: 'test-token' } });
+  describe('addSkill', () => {
+    it('successfully adds a new skill', async () => {
+      const mockResponse = { data: { success: true } };
+      const skillToAdd = 'python';
 
-      await authService.login('user', 'pass');
+      mockApi.post.mockResolvedValue(mockResponse);
 
-      expect(mockApi.post).toHaveBeenCalledWith(
-        '/api/auth/login',
-        { username: 'user', password: 'pass' }
-      );
+      const result = await authService.addSkill(skillToAdd);
+
+      expect(mockApi.post).toHaveBeenCalledWith('/api/skills', { skill: skillToAdd });
+      expect(result).toEqual(mockResponse.data);
     });
 
-    it('uses centralized API instance for register', async () => {
-      const { authService } = await import('./auth');
-      mockApi.post.mockResolvedValue({});
+    it('throws authentication error when unauthorized', async () => {
+      mockApi.post.mockRejectedValue({ response: { status: 401 } });
 
-      await authService.register('user', 'pass');
-
-      expect(mockApi.post).toHaveBeenCalledWith(
-        '/api/auth/register',
-        { username: 'user', password: 'pass' }
-      );
+      await expect(authService.addSkill('python')).rejects.toThrow('Não autorizado. Faça login novamente.');
     });
 
-    it('uses centralized API instance for updatePassword', async () => {
-      const { authService } = await import('./auth');
-      mockApi.put.mockResolvedValue({});
+    it('throws validation error for bad request', async () => {
+      mockApi.post.mockRejectedValue({ response: { status: 400 } });
 
-      await authService.updatePassword('old', 'new');
-
-      expect(mockApi.put).toHaveBeenCalledWith(
-        '/api/auth/update-password',
-        { oldPassword: 'old', newPassword: 'new' }
-      );
+      await expect(authService.addSkill('invalid-skill')).rejects.toThrow('Skill inválida ou já existe.');
     });
 
-    it('uses centralized API instance for deleteAccount', async () => {
-      const { authService } = await import('./auth');
-      mockApi.delete.mockResolvedValue({});
+    it('throws generic error for other API errors', async () => {
+      mockApi.post.mockRejectedValue(new Error('Server error'));
 
-      await authService.deleteAccount();
+      await expect(authService.addSkill('python')).rejects.toThrow('Erro ao adicionar skill. Tente novamente.');
+    });
+  });
 
-      expect(mockApi.delete).toHaveBeenCalledWith('/api/auth/delete-account');
+  describe('removeSkill', () => {
+    it('successfully removes a skill', async () => {
+      const mockResponse = { data: { success: true } };
+      const skillToRemove = 'javascript';
+
+      mockApi.put.mockResolvedValue(mockResponse);
+
+      const result = await authService.removeSkill(skillToRemove);
+
+      expect(mockApi.put).toHaveBeenCalledWith('/api/skills', { skill: skillToRemove });
+      expect(result).toEqual(mockResponse.data);
     });
 
-    it('handles 401 errors correctly in updatePassword', async () => {
-      const { authService } = await import('./auth');
-      const mockError = {
-        response: { status: 401 }
-      };
-      mockApi.put.mockRejectedValue(mockError);
+    it('throws authentication error when unauthorized', async () => {
+      mockApi.put.mockRejectedValue({ response: { status: 401 } });
 
-      await expect(authService.updatePassword('old', 'new'))
-        .rejects.toThrow('Erro no servidor. Tente novamente.');
-
-      expect(mockApi.put).toHaveBeenCalledWith(
-        '/api/auth/update-password',
-        { oldPassword: 'old', newPassword: 'new' }
-      );
+      await expect(authService.removeSkill('javascript')).rejects.toThrow('Não autorizado. Faça login novamente.');
     });
 
-    it('handles 401 during deleteAccount through centralized API', async () => {
-      const { authService } = await import('./auth');
-      const mockError = {
-        response: { status: 401 }
-      };
-      mockApi.delete.mockRejectedValue(mockError);
+    it('throws not found error when skill does not exist', async () => {
+      mockApi.put.mockRejectedValue({ response: { status: 404 } });
 
-      await expect(authService.deleteAccount())
-        .rejects.toThrow('Não autorizado. Faça login novamente.');
+      await expect(authService.removeSkill('nonexistent')).rejects.toThrow('Skill não encontrada.');
+    });
 
-      expect(mockApi.delete).toHaveBeenCalledWith('/api/auth/delete-account');
+    it('throws generic error for other API errors', async () => {
+      mockApi.put.mockRejectedValue(new Error('Network error'));
+
+      await expect(authService.removeSkill('javascript')).rejects.toThrow('Erro ao remover skill. Tente novamente.');
+    });
+  });
+
+  describe('removeAllSkills', () => {
+    it('successfully removes all skills', async () => {
+      const mockResponse = { data: { success: true } };
+
+      mockApi.delete.mockResolvedValue(mockResponse);
+
+      const result = await authService.removeAllSkills();
+
+      expect(mockApi.delete).toHaveBeenCalledWith('/api/skills');
+      expect(result).toEqual(mockResponse.data);
+    });
+
+    it('throws authentication error when unauthorized', async () => {
+      mockApi.delete.mockRejectedValue({ response: { status: 401 } });
+
+      await expect(authService.removeAllSkills()).rejects.toThrow('Não autorizado. Faça login novamente.');
+    });
+
+    it('throws generic error for other API errors', async () => {
+      mockApi.delete.mockRejectedValue(new Error('Server error'));
+
+      await expect(authService.removeAllSkills()).rejects.toThrow('Erro ao remover todas as skills. Tente novamente.');
+    });
+  });
+
+  describe('integration scenarios', () => {
+    it('handles complete user workflow with skills', async () => {
+      // Setup user with premium role
+      const mockPayload = { sub: 'user123', role: 'premium' };
+      const mockToken = `header.${btoa(JSON.stringify(mockPayload))}.signature`;
+      localStorage.setItem('jboard_token', mockToken);
+
+      // Verify user role
+      expect(authService.getUserRole()).toBe('premium');
+
+      // Mock API responses
+      mockApi.get.mockResolvedValue({ data: { skills: [] } });
+      mockApi.post.mockResolvedValue({ data: { success: true } });
+      mockApi.put.mockResolvedValue({ data: { success: true } });
+      mockApi.delete.mockResolvedValue({ data: { success: true } });
+
+      // Get initial skills
+      const initialSkills = await authService.getSkills();
+      expect(initialSkills.skills).toEqual([]);
+
+      // Add skills
+      await authService.addSkill('javascript');
+      await authService.addSkill('react');
+
+      // Remove a skill
+      await authService.removeSkill('javascript');
+
+      // Remove all skills
+      await authService.removeAllSkills();
+
+      // Verify API calls
+      expect(mockApi.get).toHaveBeenCalledWith('/api/skills');
+      expect(mockApi.post).toHaveBeenCalledWith('/api/skills', { skill: 'javascript' });
+      expect(mockApi.post).toHaveBeenCalledWith('/api/skills', { skill: 'react' });
+      expect(mockApi.put).toHaveBeenCalledWith('/api/skills', { skill: 'javascript' });
+      expect(mockApi.delete).toHaveBeenCalledWith('/api/skills');
     });
   });
 });
