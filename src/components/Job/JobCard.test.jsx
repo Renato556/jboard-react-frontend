@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import JobCard from '../components/JobCard';
+import JobCard from './JobCard.jsx';
 
 describe('JobCard', () => {
   const mockJob = {
