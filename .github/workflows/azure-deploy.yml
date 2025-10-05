@@ -52,6 +52,8 @@ jobs:
           --query "properties.configuration.ingress.fqdn" \
           --output tsv)
         
+        echo "Raw FQDN result: '$BACKEND_FQDN'"
+        
         if [ -z "$BACKEND_FQDN" ] || [ "$BACKEND_FQDN" = "null" ]; then
           echo "Cannot deploy frontend without a valid backend URL"
           exit 1
@@ -78,6 +80,14 @@ jobs:
       uses: azure/login@v2
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Debug backend URL
+      run: |
+        echo "Backend URL from previous job: '${{ needs.test-and-setup.outputs.backend-url }}'"
+        if [ -z "${{ needs.test-and-setup.outputs.backend-url }}" ]; then
+          echo "❌ Backend URL is empty! This will cause build to fail."
+          exit 1
+        fi
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
