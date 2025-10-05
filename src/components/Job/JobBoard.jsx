@@ -25,7 +25,6 @@ const JobBoard = ({ onLogout }) => {
         setError(null);
       } catch (err) {
         setError(err.message);
-        console.error('Erro ao carregar vagas:', err);
       } finally {
         setLoading(false);
       }

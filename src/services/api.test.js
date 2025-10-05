@@ -16,6 +16,9 @@ describe('API Service', () => {
       interceptors: {
         request: {
           use: vi.fn()
+        },
+        response: {
+          use: vi.fn()
         }
       }
     }
@@ -41,6 +44,9 @@ describe('API Service', () => {
       interceptors: {
         request: {
           use: vi.fn()
+        },
+        response: {
+          use: vi.fn()
         }
       }
     }
@@ -61,6 +67,9 @@ describe('API Service', () => {
       get: vi.fn(),
       interceptors: {
         request: {
+          use: vi.fn()
+        },
+        response: {
           use: vi.fn()
         }
       }
@@ -85,13 +94,17 @@ describe('API Service', () => {
   it('adds authorization header when token is available', async () => {
     const mockToken = 'test-token-123'
     const mockAuthService = {
-      getToken: vi.fn().mockReturnValue(mockToken)
+      getToken: vi.fn().mockReturnValue(mockToken),
+      isAuthenticated: vi.fn().mockReturnValue(true)
     }
 
     const mockAxiosInstance = {
       get: vi.fn().mockResolvedValue({ data: { data: [] } }),
       interceptors: {
         request: {
+          use: vi.fn()
+        },
+        response: {
           use: vi.fn()
         }
       }
@@ -115,13 +128,17 @@ describe('API Service', () => {
 
   it('does not add authorization header when token is not available', async () => {
     const mockAuthService = {
-      getToken: vi.fn().mockReturnValue(null)
+      getToken: vi.fn().mockReturnValue(null),
+      isAuthenticated: vi.fn().mockReturnValue(false)
     }
 
     const mockAxiosInstance = {
       get: vi.fn().mockResolvedValue({ data: { data: [] } }),
       interceptors: {
         request: {
+          use: vi.fn()
+        },
+        response: {
           use: vi.fn()
         }
       }
@@ -152,6 +169,9 @@ describe('API Service', () => {
       get: vi.fn().mockResolvedValue({ data: { data: [] } }),
       interceptors: {
         request: {
+          use: vi.fn()
+        },
+        response: {
           use: vi.fn()
         }
       }
@@ -184,6 +204,9 @@ describe('API Service', () => {
       interceptors: {
         request: {
           use: vi.fn()
+        },
+        response: {
+          use: vi.fn()
         }
       }
     }
@@ -215,6 +238,9 @@ describe('API Service', () => {
     const mockAxiosInstance = {
       interceptors: {
         request: {
+          use: vi.fn()
+        },
+        response: {
           use: vi.fn()
         }
       }
@@ -250,6 +276,9 @@ describe('API Service', () => {
       interceptors: {
         request: {
           use: vi.fn()
+        },
+        response: {
+          use: vi.fn()
         }
       }
     }
@@ -266,13 +295,18 @@ describe('API Service', () => {
     expect(result).toEqual(mockJobsData)
   })
 
-  it('throws specific error message when jobs request fails', async () => {
+  it('should logout and redirect when 401 error occurs and user is authenticated', async () => {
+    const mockAuthService = {
+      getToken: vi.fn().mockReturnValue('valid-token'),
+      isAuthenticated: vi.fn().mockReturnValue(true),
+      logout: vi.fn()
+    }
+
     const mockAxiosInstance = {
-      get: vi.fn().mockRejectedValue(new Error('401 Unauthorized')),
+      get: vi.fn(),
       interceptors: {
-        request: {
-          use: vi.fn()
-        }
+        request: { use: vi.fn() },
+        response: { use: vi.fn() }
       }
     }
 
@@ -280,23 +314,43 @@ describe('API Service', () => {
       create: vi.fn().mockReturnValue(mockAxiosInstance)
     }
 
+    // Mock window.location
+    const mockLocation = { href: '' }
+    Object.defineProperty(window, 'location', {
+      value: mockLocation,
+      writable: true
+    })
+
     vi.doMock('axios', () => ({ default: mockAxios }))
+    vi.doMock('./auth.js', () => ({ authService: mockAuthService }))
 
-    const { jobsService } = await import('../services/api')
+    await import('../services/api')
 
-    await expect(jobsService.getJobs()).rejects.toThrow('Falha ao carregar as vagas de emprego')
+    // Get the response interceptor error handler
+    const responseErrorHandler = mockAxiosInstance.interceptors.response.use.mock.calls[0][1]
+
+    const error = {
+      response: { status: 401 }
+    }
+
+    await expect(responseErrorHandler(error)).rejects.toEqual(error)
+
+    expect(mockAuthService.logout).toHaveBeenCalled()
+    expect(mockLocation.href).toBe('/login')
   })
 
-  it('logs error when jobs request fails', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const originalError = new Error('Network timeout')
+  it('should not logout when 401 error occurs but user is not authenticated', async () => {
+    const mockAuthService = {
+      getToken: vi.fn().mockReturnValue(null),
+      isAuthenticated: vi.fn().mockReturnValue(false),
+      logout: vi.fn()
+    }
 
     const mockAxiosInstance = {
-      get: vi.fn().mockRejectedValue(originalError),
+      get: vi.fn(),
       interceptors: {
-        request: {
-          use: vi.fn()
-        }
+        request: { use: vi.fn() },
+        response: { use: vi.fn() }
       }
     }
 
@@ -304,27 +358,41 @@ describe('API Service', () => {
       create: vi.fn().mockReturnValue(mockAxiosInstance)
     }
 
+    const mockLocation = { href: '' }
+    Object.defineProperty(window, 'location', {
+      value: mockLocation,
+      writable: true
+    })
+
     vi.doMock('axios', () => ({ default: mockAxios }))
+    vi.doMock('./auth.js', () => ({ authService: mockAuthService }))
 
-    const { jobsService } = await import('../services/api')
+    await import('../services/api')
 
-    try {
-      await jobsService.getJobs()
-    } catch {
-      // Expected to throw
+    const responseErrorHandler = mockAxiosInstance.interceptors.response.use.mock.calls[0][1]
+
+    const error = {
+      response: { status: 401 }
     }
 
-    expect(consoleSpy).toHaveBeenCalledWith('Erro ao buscar vagas:', originalError)
-    consoleSpy.mockRestore()
+    await expect(responseErrorHandler(error)).rejects.toEqual(error)
+
+    expect(mockAuthService.logout).not.toHaveBeenCalled()
+    expect(mockLocation.href).toBe('')
   })
 
-  it('handles undefined response data gracefully', async () => {
+  it('should not logout when error is not 401', async () => {
+    const mockAuthService = {
+      getToken: vi.fn().mockReturnValue('valid-token'),
+      isAuthenticated: vi.fn().mockReturnValue(true),
+      logout: vi.fn()
+    }
+
     const mockAxiosInstance = {
-      get: vi.fn().mockResolvedValue({}),
+      get: vi.fn(),
       interceptors: {
-        request: {
-          use: vi.fn()
-        }
+        request: { use: vi.fn() },
+        response: { use: vi.fn() }
       }
     }
 
@@ -332,23 +400,41 @@ describe('API Service', () => {
       create: vi.fn().mockReturnValue(mockAxiosInstance)
     }
 
+    const mockLocation = { href: '' }
+    Object.defineProperty(window, 'location', {
+      value: mockLocation,
+      writable: true
+    })
+
     vi.doMock('axios', () => ({ default: mockAxios }))
+    vi.doMock('./auth.js', () => ({ authService: mockAuthService }))
 
-    const { jobsService } = await import('../services/api')
-    const result = await jobsService.getJobs()
+    await import('../services/api')
 
-    expect(result).toBeUndefined()
+    const responseErrorHandler = mockAxiosInstance.interceptors.response.use.mock.calls[0][1]
+
+    const error = {
+      response: { status: 500 }
+    }
+
+    await expect(responseErrorHandler(error)).rejects.toEqual(error)
+
+    expect(mockAuthService.logout).not.toHaveBeenCalled()
+    expect(mockLocation.href).toBe('')
   })
 
-  it('calls correct endpoint for jobs', async () => {
+  it('should handle errors without response object', async () => {
+    const mockAuthService = {
+      getToken: vi.fn().mockReturnValue('valid-token'),
+      isAuthenticated: vi.fn().mockReturnValue(true),
+      logout: vi.fn()
+    }
+
     const mockAxiosInstance = {
-      get: vi.fn().mockResolvedValue({
-        data: { data: [] }
-      }),
+      get: vi.fn(),
       interceptors: {
-        request: {
-          use: vi.fn()
-        }
+        request: { use: vi.fn() },
+        response: { use: vi.fn() }
       }
     }
 
@@ -357,10 +443,77 @@ describe('API Service', () => {
     }
 
     vi.doMock('axios', () => ({ default: mockAxios }))
+    vi.doMock('./auth.js', () => ({ authService: mockAuthService }))
 
-    const { jobsService } = await import('../services/api')
-    await jobsService.getJobs()
+    await import('../services/api')
 
-    expect(mockAxiosInstance.get).toHaveBeenCalledWith('/api/jobs')
+    const responseErrorHandler = mockAxiosInstance.interceptors.response.use.mock.calls[0][1]
+
+    const error = new Error('Network Error')
+
+    await expect(responseErrorHandler(error)).rejects.toEqual(error)
+
+    expect(mockAuthService.logout).not.toHaveBeenCalled()
+  })
+
+  it('should pass through successful responses', async () => {
+    const mockAuthService = {
+      getToken: vi.fn().mockReturnValue('valid-token'),
+      isAuthenticated: vi.fn().mockReturnValue(true),
+      logout: vi.fn()
+    }
+
+    const mockAxiosInstance = {
+      get: vi.fn(),
+      interceptors: {
+        request: { use: vi.fn() },
+        response: { use: vi.fn() }
+      }
+    }
+
+    const mockAxios = {
+      create: vi.fn().mockReturnValue(mockAxiosInstance)
+    }
+
+    vi.doMock('axios', () => ({ default: mockAxios }))
+    vi.doMock('./auth.js', () => ({ authService: mockAuthService }))
+
+    await import('../services/api')
+
+    const responseSuccessHandler = mockAxiosInstance.interceptors.response.use.mock.calls[0][0]
+
+    const response = { data: { success: true } }
+
+    const result = responseSuccessHandler(response)
+
+    expect(result).toEqual(response)
+    expect(mockAuthService.logout).not.toHaveBeenCalled()
+  })
+
+  // Testes para jobsService com tratamento de erro 401
+  describe('jobsService - 401 Error Handling', () => {
+    it('should not set error state when 401 occurs', async () => {
+      const mockAxiosInstance = {
+        get: vi.fn().mockRejectedValue({
+          response: { status: 401 },
+          message: 'Unauthorized'
+        }),
+        interceptors: {
+          request: { use: vi.fn() },
+          response: { use: vi.fn() }
+        }
+      }
+
+      const mockAxios = {
+        create: vi.fn().mockReturnValue(mockAxiosInstance)
+      }
+
+      vi.doMock('axios', () => ({ default: mockAxios }))
+
+      const { jobsService } = await import('../services/api')
+
+      await expect(jobsService.getJobs()).rejects.toThrow('Falha ao carregar as vagas de emprego')
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/api/jobs')
+    })
   })
 })
