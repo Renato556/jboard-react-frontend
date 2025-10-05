@@ -18,6 +18,54 @@
   padding: 0 20px;
 }
 
+.header-top {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.header-title-section {
+  flex: 1;
+  text-align: center;
+}
+
+.header-actions {
+  position: absolute;
+  right: 0;
+  top: 0;
+  display: flex;
+  gap: 12px;
+}
+
+.profile-button,
+.logout-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.profile-button:hover,
+.logout-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.profile-button svg,
+.logout-button svg {
+  stroke: currentColor;
+}
+
 .main-title {
   font-size: 3rem;
   font-weight: 700;
@@ -27,7 +75,7 @@
 
 .main-subtitle {
   font-size: 1.2rem;
-  margin: 0 0 24px 0;
+  margin: 0;
   opacity: 0.9;
   font-weight: 300;
 }
@@ -190,6 +238,22 @@
 }
 
 @media (max-width: 768px) {
+  .header-top {
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .header-actions {
+    position: static;
+    order: -1;
+    align-self: flex-end;
+  }
+
+  .header-title-section {
+    text-align: center;
+  }
+
   .mobile-filter-toggle {
     display: flex;
   }

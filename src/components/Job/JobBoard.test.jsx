@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import JobBoard from './JobBoard';
-import { jobsService } from '../services/api';
+import JobBoard from './JobBoard.jsx';
+import { jobsService } from '../../services/api.js';
 
 vi.mock('../services/api', () => ({
   jobsService: {
@@ -27,7 +27,7 @@ vi.mock('./JobFilters', () => ({
         onChange={(e) => onFilterChange({ ...filters, seniorityLevel: e.target.value })}
       >
         <option value="">All</option>
-        {seniorityLevels.map(level => (
+        {seniorityLevels.filter(Boolean).map(level => (
           <option key={level} value={level}>{level}</option>
         ))}
       </select>
@@ -37,7 +37,7 @@ vi.mock('./JobFilters', () => ({
         onChange={(e) => onFilterChange({ ...filters, field: e.target.value })}
       >
         <option value="">All</option>
-        {fields.map(field => (
+        {fields.filter(Boolean).map(field => (
           <option key={field} value={field}>{field}</option>
         ))}
       </select>
@@ -374,5 +374,254 @@ describe('JobBoard', () => {
     });
 
     expect(screen.getByTestId('job-card-1')).toBeInTheDocument();
+  });
+
+  it('calls onLogout when logout button is clicked', async () => {
+    const mockOnLogout = vi.fn();
+    jobsService.getJobs.mockResolvedValue({ data: mockJobs });
+
+    render(<JobBoard onLogout={mockOnLogout} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('JBoard')).toBeInTheDocument();
+    });
+
+    const logoutButton = screen.getByRole('button', { name: /sair/i });
+    fireEvent.click(logoutButton);
+
+    expect(mockOnLogout).toHaveBeenCalledTimes(1);
+  });
+
+  it('navigates to profile when profile button is clicked', async () => {
+    const originalLocation = window.location;
+    delete window.location;
+    window.location = { href: '' };
+
+    jobsService.getJobs.mockResolvedValue({ data: mockJobs });
+
+    render(<JobBoard />);
+
+    await waitFor(() => {
+      expect(screen.getByText('JBoard')).toBeInTheDocument();
+    });
+
+    const profileButton = screen.getByRole('button', { name: /perfil/i });
+    fireEvent.click(profileButton);
+
+    expect(window.location.href).toBe('/perfil');
+
+    window.location = originalLocation;
+  });
+
+  it('displays correct job count with singular form', async () => {
+    const singleJob = [mockJobs[0]];
+    jobsService.getJobs.mockResolvedValue({ data: singleJob });
+
+    render(<JobBoard />);
+
+    await waitFor(() => {
+      expect(screen.getByText('1 vaga disponível')).toBeInTheDocument();
+    });
+  });
+
+  it('displays correct filtered job count with singular form', async () => {
+    jobsService.getJobs.mockResolvedValue({ data: mockJobs });
+
+    render(<JobBoard />);
+
+    await waitFor(() => {
+      expect(screen.getByText('3 vagas disponíveis')).toBeInTheDocument();
+    });
+
+    const seniorityFilter = screen.getByTestId('seniority-filter');
+    fireEvent.change(seniorityFilter, { target: { value: 'Senior' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('1 vaga encontrada')).toBeInTheDocument();
+    });
+  });
+
+  it('handles jobs with missing dates gracefully', async () => {
+    const jobsWithMissingDates = [
+      {
+        id: '1',
+        title: 'Job 1',
+        company: 'Company 1',
+        publishedDate: null,
+        updatedAt: undefined,
+        seniorityLevel: 'Junior',
+        field: 'Tech'
+      },
+      {
+        id: '2',
+        title: 'Job 2',
+        company: 'Company 2',
+        publishedDate: '2025-01-15T10:00:00Z',
+        updatedAt: '2025-01-20T10:00:00Z',
+        seniorityLevel: 'Senior',
+        field: 'Tech'
+      }
+    ];
+
+    jobsService.getJobs.mockResolvedValue({ data: jobsWithMissingDates });
+
+    render(<JobBoard />);
+
+    await waitFor(() => {
+      expect(screen.getByText('2 vagas disponíveis')).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('job-card-1')).toBeInTheDocument();
+    expect(screen.getByTestId('job-card-2')).toBeInTheDocument();
+  });
+
+  it('filters out jobs with empty seniority levels and fields from filter options', async () => {
+    const jobsWithEmptyValues = [
+      ...mockJobs,
+      {
+        id: '4',
+        title: 'Job 4',
+        company: 'Company 4',
+        publishedDate: '2025-01-15T10:00:00Z',
+        updatedAt: '2025-01-20T10:00:00Z',
+        seniorityLevel: '',
+        field: null
+      }
+    ];
+
+    jobsService.getJobs.mockResolvedValue({ data: jobsWithEmptyValues });
+
+    render(<JobBoard />);
+
+    await waitFor(() => {
+      expect(screen.getByText('4 vagas disponíveis')).toBeInTheDocument();
+    });
+
+    const seniorityFilter = screen.getByTestId('seniority-filter');
+    const seniorityOptions = Array.from(seniorityFilter.options)
+      .map(option => option.value)
+      .filter(value => value !== '');
+
+    expect(seniorityOptions).toContain('Junior');
+    expect(seniorityOptions).toContain('Senior');
+    expect(seniorityOptions).toContain('Pleno');
+    expect(seniorityOptions).toHaveLength(3);
+
+    const fieldFilter = screen.getByTestId('field-filter');
+    const fieldOptions = Array.from(fieldFilter.options)
+      .map(option => option.value)
+      .filter(value => value !== '');
+
+    expect(fieldOptions).toContain('Tecnologia');
+    expect(fieldOptions).toContain('Marketing');
+    expect(fieldOptions).toHaveLength(2);
+  });
+
+  it('shows mobile filter toggle on mobile viewport', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 500,
+    });
+
+    jobsService.getJobs.mockResolvedValue({ data: mockJobs });
+
+    render(<JobBoard />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Filtros')).toBeInTheDocument();
+    });
+
+    const filterButton = screen.getByText('Filtros');
+    expect(filterButton).toBeInTheDocument();
+  });
+
+  it('toggles mobile filters when filter button is clicked', async () => {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 500,
+    });
+
+    jobsService.getJobs.mockResolvedValue({ data: mockJobs });
+
+    render(<JobBoard />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Filtros')).toBeInTheDocument();
+    });
+
+    const filterButton = screen.getByText('Filtros');
+    fireEvent.click(filterButton);
+
+    const filtersContainer = document.querySelector('.filters-sidebar');
+    expect(filtersContainer).toHaveClass('show');
+  });
+
+  it('combines seniority and field filters correctly', async () => {
+    jobsService.getJobs.mockResolvedValue({ data: mockJobs });
+
+    render(<JobBoard />);
+
+    await waitFor(() => {
+      expect(screen.getByText('3 vagas disponíveis')).toBeInTheDocument();
+    });
+
+    const seniorityFilter = screen.getByTestId('seniority-filter');
+    const fieldFilter = screen.getByTestId('field-filter');
+
+    fireEvent.change(seniorityFilter, { target: { value: 'Senior' } });
+    fireEvent.change(fieldFilter, { target: { value: 'Tecnologia' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('1 vaga encontrada')).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('job-card-2')).toBeInTheDocument();
+    expect(screen.queryByTestId('job-card-1')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('job-card-3')).not.toBeInTheDocument();
+  });
+
+  it('displays header with correct title and subtitle', async () => {
+    jobsService.getJobs.mockResolvedValue({ data: mockJobs });
+
+    render(<JobBoard />);
+
+    await waitFor(() => {
+      expect(screen.getByText('JBoard')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Encontre sua próxima oportunidade profissional')).toBeInTheDocument();
+  });
+
+  it('handles empty response data gracefully', async () => {
+    jobsService.getJobs.mockResolvedValue({ data: null });
+
+    render(<JobBoard />);
+
+    await waitFor(() => {
+      expect(screen.getByText('0 vagas disponíveis')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Nenhuma vaga encontrada')).toBeInTheDocument();
+  });
+
+  it('shows filter indicator when any filter is active', async () => {
+    jobsService.getJobs.mockResolvedValue({ data: mockJobs });
+
+    render(<JobBoard />);
+
+    await waitFor(() => {
+      expect(screen.getByText('3 vagas disponíveis')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('•')).not.toBeInTheDocument();
+
+    const seniorityFilter = screen.getByTestId('seniority-filter');
+    fireEvent.change(seniorityFilter, { target: { value: 'Junior' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('•')).toBeInTheDocument();
+    });
   });
 });
