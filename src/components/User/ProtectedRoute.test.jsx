@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute.jsx';
 import { authService } from '../../services/auth.js';
 
-vi.mock('../services/auth', () => ({
+vi.mock('../../services/auth', () => ({
   authService: {
     isAuthenticated: vi.fn()
   }

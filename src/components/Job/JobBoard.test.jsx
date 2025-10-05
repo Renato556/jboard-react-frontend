@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import JobBoard from './JobBoard.jsx';
 import { jobsService } from '../../services/api.js';
 
-vi.mock('../services/api', () => ({
+vi.mock('../../services/api', () => ({
   jobsService: {
     getJobs: vi.fn()
   }

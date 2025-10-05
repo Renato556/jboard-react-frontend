@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import Register from './Register.jsx';
 import { authService } from '../../services/auth.js';
 
-vi.mock('../services/auth', () => ({
+vi.mock('../../services/auth', () => ({
   authService: {
     register: vi.fn()
   }

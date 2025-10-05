@@ -6,7 +6,8 @@ import { authService } from './services/auth';
 
 vi.mock('./services/auth', () => ({
   authService: {
-    logout: vi.fn()
+    logout: vi.fn(),
+    isAuthenticated: vi.fn(() => true)
   }
 }));
 
@@ -18,7 +19,7 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-vi.mock('./components/JobBoard', () => ({
+vi.mock('./components/Job/JobBoard', () => ({
   default: ({ onLogout }) => (
     <div data-testid="job-board">
       JobBoard Component
@@ -27,7 +28,7 @@ vi.mock('./components/JobBoard', () => ({
   )
 }));
 
-vi.mock('./components/Login', () => ({
+vi.mock('./components/User/Login', () => ({
   default: ({ onLoginSuccess }) => (
     <div data-testid="login-component">
       Login Component
@@ -36,7 +37,7 @@ vi.mock('./components/Login', () => ({
   )
 }));
 
-vi.mock('./components/Profile', () => ({
+vi.mock('./components/User/Profile', () => ({
   default: ({ onLogout }) => (
     <div data-testid="profile-component">
       Profile Component
@@ -45,7 +46,7 @@ vi.mock('./components/Profile', () => ({
   )
 }));
 
-vi.mock('./components/ProtectedRoute', () => ({
+vi.mock('./components/User/ProtectedRoute', () => ({
   default: ({ children }) => (
     <div data-testid="protected-route">{children}</div>
   )
