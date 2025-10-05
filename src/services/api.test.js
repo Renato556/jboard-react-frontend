@@ -314,7 +314,6 @@ describe('API Service', () => {
       create: vi.fn().mockReturnValue(mockAxiosInstance)
     }
 
-    // Mock window.location
     const mockLocation = { href: '' }
     Object.defineProperty(window, 'location', {
       value: mockLocation,
@@ -326,7 +325,6 @@ describe('API Service', () => {
 
     await import('../services/api')
 
-    // Get the response interceptor error handler
     const responseErrorHandler = mockAxiosInstance.interceptors.response.use.mock.calls[0][1]
 
     const error = {
@@ -490,7 +488,6 @@ describe('API Service', () => {
     expect(mockAuthService.logout).not.toHaveBeenCalled()
   })
 
-  // Testes para jobsService com tratamento de erro 401
   describe('jobsService - 401 Error Handling', () => {
     it('should not set error state when 401 occurs', async () => {
       const mockAxiosInstance = {

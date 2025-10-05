@@ -6,7 +6,12 @@ import { authService } from '../../services/auth.js';
 vi.mock('../../services/auth', () => ({
   authService: {
     updatePassword: vi.fn(),
-    deleteAccount: vi.fn()
+    deleteAccount: vi.fn(),
+    getUserRole: vi.fn(),
+    getSkills: vi.fn(),
+    addSkill: vi.fn(),
+    removeSkill: vi.fn(),
+    removeAllSkills: vi.fn()
   }
 }));
 
@@ -19,14 +24,204 @@ describe('Profile', () => {
       value: { back: vi.fn() },
       writable: true
     });
+    Object.defineProperty(window, 'location', {
+      value: { href: '' },
+      writable: true
+    });
   });
 
   it('renders profile header with title and back button', () => {
+    authService.getUserRole.mockReturnValue('free');
     render(<Profile onLogout={mockOnLogout} />);
 
     expect(screen.getByText('Meu Perfil')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /voltar/i })).toBeInTheDocument();
     expect(screen.getByText('Segurança da Conta')).toBeInTheDocument();
+  });
+
+  describe('Skills functionality', () => {
+    it('shows upgrade message for free users', () => {
+      authService.getUserRole.mockReturnValue('free');
+      render(<Profile onLogout={mockOnLogout} />);
+
+      expect(screen.getByText('Minhas Skills')).toBeInTheDocument();
+      expect(screen.getByText((content, element) => {
+        return element?.textContent === 'Atualize para o plano Premium para acessar os recursos de gerenciamento de skills.';
+      })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /ver planos/i })).toBeInTheDocument();
+    });
+
+    it('shows skills management for premium users', async () => {
+      authService.getUserRole.mockReturnValue('premium');
+      authService.getSkills.mockResolvedValue({ skills: ['javascript', 'react'] });
+
+      render(<Profile onLogout={mockOnLogout} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('javascript')).toBeInTheDocument();
+        expect(screen.getByText('react')).toBeInTheDocument();
+      });
+
+      expect(screen.getByLabelText(/adicionar nova habilidade/i)).toBeInTheDocument();
+      expect(screen.getByText(/adicione uma habilidade por vez/i)).toBeInTheDocument();
+    });
+
+    it('adds new skill for premium users', async () => {
+      authService.getUserRole.mockReturnValue('premium');
+      authService.getSkills
+        .mockResolvedValueOnce({ skills: ['javascript'] })
+        .mockResolvedValueOnce({ skills: ['javascript', 'python'] });
+      authService.addSkill.mockResolvedValue({});
+
+      render(<Profile onLogout={mockOnLogout} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('javascript')).toBeInTheDocument();
+      });
+
+      const input = screen.getByPlaceholderText(/digite uma nova habilidade/i);
+      const addButton = screen.getByRole('button', { name: /adicionar/i });
+
+      fireEvent.change(input, { target: { value: 'python' } });
+      fireEvent.click(addButton);
+
+      await waitFor(() => {
+        expect(authService.addSkill).toHaveBeenCalledWith('python');
+      });
+    });
+
+    it('validates empty skill input', async () => {
+      authService.getUserRole.mockReturnValue('premium');
+      authService.getSkills.mockResolvedValue({ skills: [] });
+
+      render(<Profile onLogout={mockOnLogout} />);
+
+      const addButton = await screen.findByRole('button', { name: /adicionar/i });
+      fireEvent.click(addButton);
+
+      await waitFor(() => {
+        expect(screen.getByText(/por favor, digite uma skill/i)).toBeInTheDocument();
+      });
+
+      expect(authService.addSkill).not.toHaveBeenCalled();
+    });
+
+    it('validates duplicate skill', async () => {
+      authService.getUserRole.mockReturnValue('premium');
+      authService.getSkills.mockResolvedValue({ skills: ['javascript'] });
+
+      render(<Profile onLogout={mockOnLogout} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('javascript')).toBeInTheDocument();
+      });
+
+      const input = screen.getByPlaceholderText(/digite uma nova habilidade/i);
+      const addButton = screen.getByRole('button', { name: /adicionar/i });
+
+      fireEvent.change(input, { target: { value: 'javascript' } });
+      fireEvent.click(addButton);
+
+      await waitFor(() => {
+        expect(screen.getByText(/esta skill já foi adicionada/i)).toBeInTheDocument();
+      });
+
+      expect(authService.addSkill).not.toHaveBeenCalled();
+    });
+
+    it('removes individual skill', async () => {
+      authService.getUserRole.mockReturnValue('premium');
+      authService.getSkills
+        .mockResolvedValueOnce({ skills: ['javascript', 'react'] })
+        .mockResolvedValueOnce({ skills: ['react'] });
+      authService.removeSkill.mockResolvedValue({});
+
+      render(<Profile onLogout={mockOnLogout} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('javascript')).toBeInTheDocument();
+      });
+
+      const removeButtons = screen.getAllByRole('button', { name: '' });
+      const firstRemoveButton = removeButtons.find(btn =>
+        btn.closest('.skill-item')?.textContent.includes('javascript')
+      );
+
+      fireEvent.click(firstRemoveButton);
+
+      await waitFor(() => {
+        expect(authService.removeSkill).toHaveBeenCalledWith('javascript');
+      });
+    });
+
+    it('removes all skills with confirmation', async () => {
+      authService.getUserRole.mockReturnValue('premium');
+      authService.getSkills
+        .mockResolvedValueOnce({ skills: ['javascript', 'react'] })
+        .mockResolvedValueOnce({ skills: [] });
+      authService.removeAllSkills.mockResolvedValue({});
+
+      // Mock window.confirm
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+      render(<Profile onLogout={mockOnLogout} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('javascript')).toBeInTheDocument();
+      });
+
+      const removeAllButton = screen.getByRole('button', { name: /limpar habilidades/i });
+      fireEvent.click(removeAllButton);
+
+      expect(confirmSpy).toHaveBeenCalledWith('Tem certeza que deseja remover todas as skills?');
+
+      await waitFor(() => {
+        expect(authService.removeAllSkills).toHaveBeenCalled();
+      });
+
+      confirmSpy.mockRestore();
+    });
+
+    it('cancels remove all skills when user rejects confirmation', async () => {
+      authService.getUserRole.mockReturnValue('premium');
+      authService.getSkills.mockResolvedValue({ skills: ['javascript'] });
+
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+      render(<Profile onLogout={mockOnLogout} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('javascript')).toBeInTheDocument();
+      });
+
+      const removeAllButton = screen.getByRole('button', { name: /limpar habilidades/i });
+      fireEvent.click(removeAllButton);
+
+      expect(authService.removeAllSkills).not.toHaveBeenCalled();
+      confirmSpy.mockRestore();
+    });
+
+    it('handles API errors when loading skills', async () => {
+      authService.getUserRole.mockReturnValue('premium');
+      authService.getSkills.mockRejectedValue(new Error('Network error'));
+
+      render(<Profile onLogout={mockOnLogout} />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/network error/i)).toBeInTheDocument();
+      });
+    });
+
+    it('shows no skills message when list is empty', async () => {
+      authService.getUserRole.mockReturnValue('premium');
+      authService.getSkills.mockResolvedValue({ skills: [] });
+
+      render(<Profile onLogout={mockOnLogout} />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/nenhuma skill encontrada/i)).toBeInTheDocument();
+      });
+    });
   });
 
   it('renders action buttons for password change and account deletion', () => {

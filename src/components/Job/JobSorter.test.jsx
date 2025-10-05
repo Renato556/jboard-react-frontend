@@ -22,8 +22,8 @@ describe('JobSorter', () => {
   it('renders all sort options', () => {
     render(<JobSorter {...mockProps} />);
 
-    expect(screen.getByText('Mais recentes (publicação)')).toBeInTheDocument();
-    expect(screen.getByText('Mais antigas (publicação)')).toBeInTheDocument();
+    expect(screen.getByText('Mais novas')).toBeInTheDocument();
+    expect(screen.getByText('Mais antigas')).toBeInTheDocument();
     expect(screen.getByText('Atualizadas recentemente')).toBeInTheDocument();
     expect(screen.getByText('Atualizadas há mais tempo')).toBeInTheDocument();
   });

@@ -1,5 +1,5 @@
 import api from './api.js';
-import { API_CONFIG } from '../config.js';
+import {API_CONFIG} from '../config.js';
 
 const TOKEN_KEY = 'jboard_token';
 
@@ -101,5 +101,75 @@ export const authService = {
 
   logout() {
     this.removeToken();
+  },
+
+  getUserData() {
+    const token = this.getToken();
+    if (!token) return null;
+
+    try {
+      return JSON.parse(atob(token.split('.')[1]));
+    } catch {
+      return null;
+    }
+  },
+
+  getUserRole() {
+    const userData = this.getUserData();
+    return userData?.role || 'free';
+  },
+
+  async getSkills() {
+    try {
+      const response = await api.get(API_CONFIG.ENDPOINTS.SKILLS);
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 401) {
+        throw new Error('Não autorizado. Faça login novamente.');
+      }
+      throw new Error('Erro ao carregar skills. Tente novamente.');
+    }
+  },
+
+  async addSkill(skill) {
+    try {
+      const response = await api.post(API_CONFIG.ENDPOINTS.SKILLS, { skill });
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 401) {
+        throw new Error('Não autorizado. Faça login novamente.');
+      }
+      if (error.response?.status === 400) {
+        throw new Error('Skill inválida ou já existe.');
+      }
+      throw new Error('Erro ao adicionar skill. Tente novamente.');
+    }
+  },
+
+  async removeSkill(skill) {
+    try {
+      const response = await api.put(API_CONFIG.ENDPOINTS.SKILLS, { skill });
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 401) {
+        throw new Error('Não autorizado. Faça login novamente.');
+      }
+      if (error.response?.status === 404) {
+        throw new Error('Skill não encontrada.');
+      }
+      throw new Error('Erro ao remover skill. Tente novamente.');
+    }
+  },
+
+  async removeAllSkills() {
+    try {
+      const response = await api.delete(API_CONFIG.ENDPOINTS.SKILLS);
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 401) {
+        throw new Error('Não autorizado. Faça login novamente.');
+      }
+      throw new Error('Erro ao remover todas as skills. Tente novamente.');
+    }
   }
 };

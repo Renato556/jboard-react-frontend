@@ -5,6 +5,7 @@ export const API_CONFIG = {
     LOGIN: '/api/auth/login',
     REGISTER: '/api/auth/register',
     UPDATE_PASSWORD: '/api/auth/update-password',
-    DELETE_ACCOUNT: '/api/auth/delete-account'
+    DELETE_ACCOUNT: '/api/auth/delete-account',
+    SKILLS: '/api/skills'
   }
 };
