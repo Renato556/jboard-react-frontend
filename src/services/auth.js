@@ -127,7 +127,7 @@ export const authService = {
       if (error.response?.status === 401) {
         throw new Error('Não autorizado. Faça login novamente.');
       }
-      throw new Error('Erro ao carregar skills. Tente novamente.');
+      throw new Error('Erro ao carregar habilidades. Tente novamente.');
     }
   },
 
@@ -140,9 +140,9 @@ export const authService = {
         throw new Error('Não autorizado. Faça login novamente.');
       }
       if (error.response?.status === 400) {
-        throw new Error('Skill inválida ou já existe.');
+        throw new Error('Habilidade inválida ou já existe.');
       }
-      throw new Error('Erro ao adicionar skill. Tente novamente.');
+      throw new Error('Erro ao adicionar habilidade. Tente novamente.');
     }
   },
 
@@ -155,9 +155,9 @@ export const authService = {
         throw new Error('Não autorizado. Faça login novamente.');
       }
       if (error.response?.status === 404) {
-        throw new Error('Skill não encontrada.');
+        throw new Error('Habilidade não encontrada.');
       }
-      throw new Error('Erro ao remover skill. Tente novamente.');
+      throw new Error('Erro ao remover habilidade. Tente novamente.');
     }
   },
 
@@ -169,7 +169,7 @@ export const authService = {
       if (error.response?.status === 401) {
         throw new Error('Não autorizado. Faça login novamente.');
       }
-      throw new Error('Erro ao remover todas as skills. Tente novamente.');
+      throw new Error('Erro ao remover todas as habilidades. Tente novamente.');
     }
   }
 };

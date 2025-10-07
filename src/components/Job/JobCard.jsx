@@ -1,8 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { authService } from '../../services/auth.js';
+import { analysisService } from '../../services/api.js';
+import AnalysisModal from './AnalysisModal.jsx';
 import './JobCard.css';
 
 const JobCard = ({ job }) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [analysis, setAnalysis] = useState(null);
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
@@ -11,9 +18,27 @@ const JobCard = ({ job }) => {
     window.open(job.url, '_blank');
   };
 
-  const handleAnalyzeWithAI = () => {
-    // TODO: Implementar análise com IA
-    console.log('Analisar vaga com IA:', job.title);
+  const handleAnalyzeWithAI = async () => {
+    setIsModalOpen(true);
+    setIsLoading(true);
+    setError(null);
+    setAnalysis(null);
+
+    try {
+      const result = await analysisService.analyzeJob(job.url);
+      setAnalysis(result);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setAnalysis(null);
+    setError(null);
+    setIsLoading(false);
   };
 
   const userRole = authService.getUserRole();
@@ -96,6 +121,14 @@ const JobCard = ({ job }) => {
           Analisar usando IA
         </button>
       </div>
+
+      <AnalysisModal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        analysis={analysis}
+        error={error}
+        isLoading={isLoading}
+      />
     </div>
   );
 };

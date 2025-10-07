@@ -94,7 +94,7 @@ describe('App', () => {
   });
 
   it('renders protected home route with job board', async () => {
-    renderAppWithRouter(['/home']);
+    renderAppWithRouter(['/inicio']);
 
     await waitFor(() => {
       expect(screen.getByTestId('protected-route')).toBeInTheDocument();
@@ -112,7 +112,7 @@ describe('App', () => {
   });
 
   it('calls authService logout when logout is triggered from home', async () => {
-    renderAppWithRouter(['/home']);
+    renderAppWithRouter(['/inicio']);
 
     await waitFor(() => {
       expect(screen.getByTestId('job-board')).toBeInTheDocument();
@@ -147,7 +147,7 @@ describe('App', () => {
   });
 
   it('passes correct props to JobBoard component', async () => {
-    renderAppWithRouter(['/home']);
+    renderAppWithRouter(['/inicio']);
 
     await waitFor(() => {
       expect(screen.getByTestId('job-board')).toBeInTheDocument();
@@ -165,7 +165,7 @@ describe('App', () => {
   });
 
   it('wraps home route with ProtectedRoute component', async () => {
-    renderAppWithRouter(['/home']);
+    renderAppWithRouter(['/inicio']);
 
     await waitFor(() => {
       expect(screen.getByTestId('protected-route')).toBeInTheDocument();
@@ -192,7 +192,7 @@ describe('App', () => {
   });
 
   it('maintains correct route structure for all defined paths', async () => {
-    const routes = ['/login', '/home', '/perfil'];
+    const routes = ['/login', '/inicio', '/perfil'];
 
     for (const route of routes) {
       const { unmount } = renderAppWithRouter([route]);
@@ -218,7 +218,7 @@ describe('App', () => {
 
     unmount();
 
-    const { unmount: unmount2 } = renderAppWithRouter(['/home']);
+    const { unmount: unmount2 } = renderAppWithRouter(['/inicio']);
 
     await waitFor(() => {
       expect(screen.getByTestId('job-board')).toBeInTheDocument();
@@ -230,7 +230,7 @@ describe('App', () => {
   it('renders all routes with correct components', async () => {
     const routeComponentPairs = [
       ['/login', 'login-component'],
-      ['/home', 'job-board'],
+      ['/inicio', 'job-board'],
       ['/perfil', 'profile-component']
     ];
 

@@ -20,7 +20,7 @@ function App() {
   }, []);
 
   const handleLoginSuccess = () => {
-    navigate('/home');
+    navigate('/inicio');
   };
 
   const handleLogout = () => {
@@ -48,7 +48,7 @@ function App() {
         element={<Login onLoginSuccess={handleLoginSuccess} />}
       />
       <Route
-        path="/home"
+        path="/inicio"
         element={
           <ProtectedRoute>
             <JobBoard onLogout={handleLogout} />

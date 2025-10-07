@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// Mock the modules first
 vi.mock('./api.js', () => ({
   default: {
     post: vi.fn(),
@@ -31,7 +30,6 @@ describe('authService', () => {
     vi.clearAllMocks();
     localStorage.clear();
 
-    // Import after mocking
     mockApi = (await import('./api.js')).default;
     authService = (await import('./auth.js')).authService;
   });
@@ -206,7 +204,7 @@ describe('authService', () => {
     it('throws generic error for other API errors', async () => {
       mockApi.get.mockRejectedValue(new Error('Network error'));
 
-      await expect(authService.getSkills()).rejects.toThrow('Erro ao carregar skills. Tente novamente.');
+      await expect(authService.getSkills()).rejects.toThrow('Erro ao carregar habilidades. Tente novamente.');
     });
   });
 
@@ -232,13 +230,13 @@ describe('authService', () => {
     it('throws validation error for bad request', async () => {
       mockApi.post.mockRejectedValue({ response: { status: 400 } });
 
-      await expect(authService.addSkill('invalid-skill')).rejects.toThrow('Skill inválida ou já existe.');
+      await expect(authService.addSkill('invalid-skill')).rejects.toThrow('Habilidade inválida ou já existe.');
     });
 
     it('throws generic error for other API errors', async () => {
       mockApi.post.mockRejectedValue(new Error('Server error'));
 
-      await expect(authService.addSkill('python')).rejects.toThrow('Erro ao adicionar skill. Tente novamente.');
+      await expect(authService.addSkill('python')).rejects.toThrow('Erro ao adicionar habilidade. Tente novamente.');
     });
   });
 
@@ -264,13 +262,13 @@ describe('authService', () => {
     it('throws not found error when skill does not exist', async () => {
       mockApi.put.mockRejectedValue({ response: { status: 404 } });
 
-      await expect(authService.removeSkill('nonexistent')).rejects.toThrow('Skill não encontrada.');
+      await expect(authService.removeSkill('nonexistent')).rejects.toThrow('Habilidade não encontrada.');
     });
 
     it('throws generic error for other API errors', async () => {
       mockApi.put.mockRejectedValue(new Error('Network error'));
 
-      await expect(authService.removeSkill('javascript')).rejects.toThrow('Erro ao remover skill. Tente novamente.');
+      await expect(authService.removeSkill('javascript')).rejects.toThrow('Erro ao remover habilidade. Tente novamente.');
     });
   });
 
@@ -295,41 +293,33 @@ describe('authService', () => {
     it('throws generic error for other API errors', async () => {
       mockApi.delete.mockRejectedValue(new Error('Server error'));
 
-      await expect(authService.removeAllSkills()).rejects.toThrow('Erro ao remover todas as skills. Tente novamente.');
+      await expect(authService.removeAllSkills()).rejects.toThrow('Erro ao remover todas as habilidades. Tente novamente.');
     });
   });
 
   describe('integration scenarios', () => {
     it('handles complete user workflow with skills', async () => {
-      // Setup user with premium role
       const mockPayload = { sub: 'user123', role: 'premium' };
       const mockToken = `header.${btoa(JSON.stringify(mockPayload))}.signature`;
       localStorage.setItem('jboard_token', mockToken);
 
-      // Verify user role
       expect(authService.getUserRole()).toBe('premium');
 
-      // Mock API responses
       mockApi.get.mockResolvedValue({ data: { skills: [] } });
       mockApi.post.mockResolvedValue({ data: { success: true } });
       mockApi.put.mockResolvedValue({ data: { success: true } });
       mockApi.delete.mockResolvedValue({ data: { success: true } });
 
-      // Get initial skills
       const initialSkills = await authService.getSkills();
       expect(initialSkills.skills).toEqual([]);
 
-      // Add skills
       await authService.addSkill('javascript');
       await authService.addSkill('react');
 
-      // Remove a skill
       await authService.removeSkill('javascript');
 
-      // Remove all skills
       await authService.removeAllSkills();
 
-      // Verify API calls
       expect(mockApi.get).toHaveBeenCalledWith('/api/skills');
       expect(mockApi.post).toHaveBeenCalledWith('/api/skills', { skill: 'javascript' });
       expect(mockApi.post).toHaveBeenCalledWith('/api/skills', { skill: 'react' });

@@ -1,13 +1,41 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import JobCard from './JobCard.jsx';
 import { authService } from '../../services/auth.js';
+import { analysisService } from '../../services/api.js';
 
 vi.mock('../../services/auth', () => ({
   authService: {
     getUserRole: vi.fn()
   }
 }));
+
+vi.mock('../../services/api', () => ({
+  analysisService: {
+    analyzeJob: vi.fn()
+  }
+}));
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => vi.fn()
+  };
+});
+
+vi.mock('react-dom', async () => {
+  const actual = await vi.importActual('react-dom');
+  return {
+    ...actual,
+    createPortal: (children) => children
+  };
+});
+
+const RouterWrapper = ({ children }) => (
+  <BrowserRouter>{children}</BrowserRouter>
+);
 
 describe('JobCard', () => {
   const mockJob = {
@@ -25,9 +53,9 @@ describe('JobCard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    // eslint-disable-next-line no-undef
     global.open = vi.fn();
-    console.log = vi.fn();
+    document.body.innerHTML = '';
+    document.body.className = '';
   });
 
   it('renders job information correctly', () => {
@@ -36,7 +64,6 @@ describe('JobCard', () => {
 
     expect(screen.getByText('Desenvolvedor Frontend')).toBeInTheDocument();
     expect(screen.getByText('Tech Company')).toBeInTheDocument();
-    // Test for date in expected format (will be 14/01/2024 due to timezone)
     expect(screen.getByText(/14\/01\/2024|15\/01\/2024/)).toBeInTheDocument();
     expect(screen.getByText(/14\/02\/2024|15\/02\/2024/)).toBeInTheDocument();
     expect(screen.getByText('Mid')).toBeInTheDocument();
@@ -102,15 +129,6 @@ describe('JobCard', () => {
       const aiButton = screen.getByRole('button', { name: /analisar usando ia/i });
       expect(aiButton).toHaveAttribute('title', 'Recurso disponível apenas para usuários Premium');
     });
-
-    it('does not trigger action when clicked as free user', () => {
-      render(<JobCard job={mockJob} />);
-
-      const aiButton = screen.getByRole('button', { name: /analisar usando ia/i });
-      fireEvent.click(aiButton);
-
-      expect(console.log).not.toHaveBeenCalled();
-    });
   });
 
   describe('AI Analysis button for premium users', () => {
@@ -140,15 +158,6 @@ describe('JobCard', () => {
 
       const aiButton = screen.getByRole('button', { name: /analisar usando ia/i });
       expect(aiButton).toHaveAttribute('title', 'Analisar vaga usando IA');
-    });
-
-    it('triggers AI analysis when clicked as premium user', () => {
-      render(<JobCard job={mockJob} />);
-
-      const aiButton = screen.getByRole('button', { name: /analisar usando ia/i });
-      fireEvent.click(aiButton);
-
-      expect(console.log).toHaveBeenCalledWith('Analisar vaga com IA:', 'Desenvolvedor Frontend');
     });
   });
 
@@ -291,6 +300,257 @@ describe('JobCard', () => {
 
       authService.getUserRole.mockReturnValue('free');
       expect(() => render(<JobCard job={emptyJob} />)).not.toThrow();
+    });
+  });
+
+  describe('AI Analysis Integration', () => {
+    beforeEach(() => {
+      authService.getUserRole.mockReturnValue('premium');
+    });
+
+    it('abre modal de análise quando usuário premium clica no botão IA', async () => {
+      analysisService.analyzeJob.mockResolvedValue({
+        message: 'Análise concluída com sucesso'
+      });
+
+      render(
+        <RouterWrapper>
+          <JobCard job={mockJob} />
+        </RouterWrapper>
+      );
+
+      const aiButton = screen.getByRole('button', { name: /analisar usando ia/i });
+      fireEvent.click(aiButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Análise da Vaga com IA')).toBeInTheDocument();
+      });
+    });
+
+    it('exibe loading durante análise', async () => {
+      analysisService.analyzeJob.mockImplementation(
+        () => new Promise(resolve => setTimeout(() => resolve({ message: 'Análise' }), 100))
+      );
+
+      render(
+        <RouterWrapper>
+          <JobCard job={mockJob} />
+        </RouterWrapper>
+      );
+
+      const aiButton = screen.getByRole('button', { name: /analisar usando ia/i });
+      fireEvent.click(aiButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Analisando vaga com IA...')).toBeInTheDocument();
+      });
+    });
+
+    it('chama analysisService.analyzeJob com URL correta', async () => {
+      analysisService.analyzeJob.mockResolvedValue({
+        message: 'Análise concluída'
+      });
+
+      render(
+        <RouterWrapper>
+          <JobCard job={mockJob} />
+        </RouterWrapper>
+      );
+
+      const aiButton = screen.getByRole('button', { name: /analisar usando ia/i });
+      fireEvent.click(aiButton);
+
+      await waitFor(() => {
+        expect(analysisService.analyzeJob).toHaveBeenCalledWith('https://example.com/job/1');
+      });
+    });
+
+    it('exibe resultado da análise no modal', async () => {
+      const mockAnalysis = {
+        message: 'Esta vaga é adequada para seu perfil.\nRecomendações específicas.'
+      };
+
+      analysisService.analyzeJob.mockResolvedValue(mockAnalysis);
+
+      render(
+        <RouterWrapper>
+          <JobCard job={mockJob} />
+        </RouterWrapper>
+      );
+
+      const aiButton = screen.getByRole('button', { name: /analisar usando ia/i });
+      fireEvent.click(aiButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Análise Concluída')).toBeInTheDocument();
+      });
+    });
+
+    it('exibe erro no modal quando análise falha', async () => {
+      const mockError = new Error('Erro na análise');
+      mockError.statusCode = 500;
+
+      analysisService.analyzeJob.mockRejectedValue(mockError);
+
+      render(
+        <RouterWrapper>
+          <JobCard job={mockJob} />
+        </RouterWrapper>
+      );
+
+      const aiButton = screen.getByRole('button', { name: /analisar usando ia/i });
+      fireEvent.click(aiButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Erro na Análise')).toBeInTheDocument();
+        expect(screen.getByText('Erro na análise')).toBeInTheDocument();
+      });
+    });
+
+    it('exibe botão para cadastrar habilidades quando erro é 400', async () => {
+      const mockError = new Error('Você precisa cadastrar suas habilidades');
+      mockError.statusCode = 400;
+
+      analysisService.analyzeJob.mockRejectedValue(mockError);
+
+      render(
+        <RouterWrapper>
+          <JobCard job={mockJob} />
+        </RouterWrapper>
+      );
+
+      const aiButton = screen.getByRole('button', { name: /analisar usando ia/i });
+      fireEvent.click(aiButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Cadastrar Habilidades')).toBeInTheDocument();
+      });
+    });
+
+    it('fecha modal quando clica no botão fechar', async () => {
+      analysisService.analyzeJob.mockResolvedValue({
+        message: 'Análise concluída'
+      });
+
+      render(
+        <RouterWrapper>
+          <JobCard job={mockJob} />
+        </RouterWrapper>
+      );
+
+      const aiButton = screen.getByRole('button', { name: /analisar usando ia/i });
+      fireEvent.click(aiButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Análise da Vaga com IA')).toBeInTheDocument();
+      });
+
+      const closeButton = document.querySelector('.analysis-close-button');
+      fireEvent.click(closeButton);
+
+      await waitFor(() => {
+        expect(screen.queryByText('Análise da Vaga com IA')).not.toBeInTheDocument();
+      });
+    });
+
+    it('limpa estado do modal entre aberturas', async () => {
+      analysisService.analyzeJob
+        .mockResolvedValueOnce({ message: 'Primeira análise' })
+        .mockResolvedValueOnce({ message: 'Segunda análise' });
+
+      render(
+        <RouterWrapper>
+          <JobCard job={mockJob} />
+        </RouterWrapper>
+      );
+
+      const aiButton = screen.getByRole('button', { name: /analisar usando ia/i });
+
+      fireEvent.click(aiButton);
+      await waitFor(() => {
+        expect(screen.getByText('Primeira análise')).toBeInTheDocument();
+      });
+
+      const closeButton = document.querySelector('.analysis-close-button');
+      fireEvent.click(closeButton);
+
+      fireEvent.click(aiButton);
+      await waitFor(() => {
+        expect(screen.getByText('Analisando vaga com IA...')).toBeInTheDocument();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Segunda análise')).toBeInTheDocument();
+        expect(screen.queryByText('Primeira análise')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('AI Analysis Error Handling', () => {
+    beforeEach(() => {
+      authService.getUserRole.mockReturnValue('premium');
+    });
+
+    it('trata erro 401 (token inválido)', async () => {
+      const mockError = new Error('Token inválido');
+      mockError.statusCode = 401;
+
+      analysisService.analyzeJob.mockRejectedValue(mockError);
+
+      render(
+        <RouterWrapper>
+          <JobCard job={mockJob} />
+        </RouterWrapper>
+      );
+
+      const aiButton = screen.getByRole('button', { name: /analisar usando ia/i });
+      fireEvent.click(aiButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Token inválido')).toBeInTheDocument();
+        expect(screen.queryByText('Cadastrar Habilidades')).not.toBeInTheDocument();
+      });
+    });
+
+    it('trata erro 403 (sem permissão)', async () => {
+      const mockError = new Error('Sem permissão para usar IA');
+      mockError.statusCode = 403;
+
+      analysisService.analyzeJob.mockRejectedValue(mockError);
+
+      render(
+        <RouterWrapper>
+          <JobCard job={mockJob} />
+        </RouterWrapper>
+      );
+
+      const aiButton = screen.getByRole('button', { name: /analisar usando ia/i });
+      fireEvent.click(aiButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Sem permissão para usar IA')).toBeInTheDocument();
+        expect(screen.queryByText('Cadastrar Habilidades')).not.toBeInTheDocument();
+      });
+    });
+
+    it('trata erro sem statusCode', async () => {
+      const mockError = new Error('Erro genérico');
+
+      analysisService.analyzeJob.mockRejectedValue(mockError);
+
+      render(
+        <RouterWrapper>
+          <JobCard job={mockJob} />
+        </RouterWrapper>
+      );
+
+      const aiButton = screen.getByRole('button', { name: /analisar usando ia/i });
+      fireEvent.click(aiButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Erro genérico')).toBeInTheDocument();
+        expect(screen.queryByText('Cadastrar Habilidades')).not.toBeInTheDocument();
+      });
     });
   });
 });
