@@ -6,6 +6,7 @@ export const API_CONFIG = {
     REGISTER: '/api/auth/register',
     UPDATE_PASSWORD: '/api/auth/update-password',
     DELETE_ACCOUNT: '/api/auth/delete-account',
-    SKILLS: '/api/skills'
+    SKILLS: '/api/skills',
+    ANALYSIS: '/api/analysis'
   }
 };

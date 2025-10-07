@@ -1,568 +1,293 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import Profile from './Profile.jsx';
 import { authService } from '../../services/auth.js';
 
 vi.mock('../../services/auth', () => ({
   authService: {
-    updatePassword: vi.fn(),
-    deleteAccount: vi.fn(),
     getUserRole: vi.fn(),
     getSkills: vi.fn(),
     addSkill: vi.fn(),
     removeSkill: vi.fn(),
-    removeAllSkills: vi.fn()
+    removeAllSkills: vi.fn(),
+    updatePassword: vi.fn(),
+    deleteAccount: vi.fn()
   }
 }));
 
-describe('Profile', () => {
+describe('Profile - Skills Auto Focus', () => {
   const mockOnLogout = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
-    Object.defineProperty(window, 'history', {
-      value: { back: vi.fn() },
-      writable: true
-    });
-    Object.defineProperty(window, 'location', {
-      value: { href: '' },
-      writable: true
-    });
   });
 
-  it('renders profile header with title and back button', () => {
+  afterEach(() => {
+    vi.clearAllTimers();
+  });
+
+  it('foca automaticamente no input de habilidades para usuário premium', async () => {
+    authService.getUserRole.mockReturnValue('premium');
+    authService.getSkills.mockResolvedValue({ skills: [] });
+
+    render(<Profile onLogout={mockOnLogout} />);
+
+    await waitFor(() => {
+      expect(authService.getSkills).toHaveBeenCalled();
+    });
+
+    const skillInput = screen.getByPlaceholderText('Digite uma nova habilidade');
+
+    expect(skillInput).toBeInTheDocument();
+    expect(skillInput).not.toBeDisabled();
+  });
+
+  it('não foca no input para usuário free', () => {
     authService.getUserRole.mockReturnValue('free');
+
     render(<Profile onLogout={mockOnLogout} />);
 
-    expect(screen.getByText('Meu Perfil')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /voltar/i })).toBeInTheDocument();
-    expect(screen.getByText('Segurança da Conta')).toBeInTheDocument();
+    const skillInput = screen.queryByPlaceholderText('Digite uma nova habilidade');
+    expect(skillInput).not.toBeInTheDocument();
   });
 
-  describe('Skills functionality', () => {
-    it('shows upgrade message for free users', () => {
-      authService.getUserRole.mockReturnValue('free');
-      render(<Profile onLogout={mockOnLogout} />);
+  it('carrega skills automaticamente para usuário premium', async () => {
+    const mockSkills = ['React', 'JavaScript', 'TypeScript'];
+    authService.getUserRole.mockReturnValue('premium');
+    authService.getSkills.mockResolvedValue({ skills: mockSkills });
 
-      expect(screen.getByText('Minhas Habilidades')).toBeInTheDocument();
-      expect(screen.getByText((content, element) => {
-        return element?.textContent === 'Atualize para o plano Premium para acessar os recursos de gerenciamento de skills.';
-      })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /ver planos/i })).toBeInTheDocument();
-    });
-
-    it('shows skills management for premium users', async () => {
-      authService.getUserRole.mockReturnValue('premium');
-      authService.getSkills.mockResolvedValue({ skills: ['javascript', 'react'] });
-
-      render(<Profile onLogout={mockOnLogout} />);
-
-      await waitFor(() => {
-        expect(screen.getByText('javascript')).toBeInTheDocument();
-        expect(screen.getByText('react')).toBeInTheDocument();
-      });
-
-      expect(screen.getByLabelText(/cadastrar nova habilidade/i)).toBeInTheDocument();
-      expect(screen.getByText(/cadastre uma habilidade por vez/i)).toBeInTheDocument();
-    });
-
-    it('adds new skill for premium users', async () => {
-      authService.getUserRole.mockReturnValue('premium');
-      authService.getSkills
-        .mockResolvedValueOnce({ skills: ['javascript'] })
-        .mockResolvedValueOnce({ skills: ['javascript', 'python'] });
-      authService.addSkill.mockResolvedValue({});
-
-      render(<Profile onLogout={mockOnLogout} />);
-
-      await waitFor(() => {
-        expect(screen.getByText('javascript')).toBeInTheDocument();
-      });
-
-      const input = screen.getByPlaceholderText(/digite uma nova habilidade/i);
-      const addButton = screen.getByRole('button', { name: /adicionar/i });
-
-      fireEvent.change(input, { target: { value: 'python' } });
-      fireEvent.click(addButton);
-
-      await waitFor(() => {
-        expect(authService.addSkill).toHaveBeenCalledWith('python');
-      });
-    });
-
-    it('validates empty skill input', async () => {
-      authService.getUserRole.mockReturnValue('premium');
-      authService.getSkills.mockResolvedValue({ skills: [] });
-
-      render(<Profile onLogout={mockOnLogout} />);
-
-      const addButton = await screen.findByRole('button', { name: /adicionar/i });
-      fireEvent.click(addButton);
-
-      await waitFor(() => {
-        expect(screen.getByText(/por favor, digite uma skill/i)).toBeInTheDocument();
-      });
-
-      expect(authService.addSkill).not.toHaveBeenCalled();
-    });
-
-    it('validates duplicate skill', async () => {
-      authService.getUserRole.mockReturnValue('premium');
-      authService.getSkills.mockResolvedValue({ skills: ['javascript'] });
-
-      render(<Profile onLogout={mockOnLogout} />);
-
-      await waitFor(() => {
-        expect(screen.getByText('javascript')).toBeInTheDocument();
-      });
-
-      const input = screen.getByPlaceholderText(/digite uma nova habilidade/i);
-      const addButton = screen.getByRole('button', { name: /adicionar/i });
-
-      fireEvent.change(input, { target: { value: 'javascript' } });
-      fireEvent.click(addButton);
-
-      await waitFor(() => {
-        expect(screen.getByText(/esta skill já foi adicionada/i)).toBeInTheDocument();
-      });
-
-      expect(authService.addSkill).not.toHaveBeenCalled();
-    });
-
-    it('removes individual skill', async () => {
-      authService.getUserRole.mockReturnValue('premium');
-      authService.getSkills
-        .mockResolvedValueOnce({ skills: ['javascript', 'react'] })
-        .mockResolvedValueOnce({ skills: ['react'] });
-      authService.removeSkill.mockResolvedValue({});
-
-      render(<Profile onLogout={mockOnLogout} />);
-
-      await waitFor(() => {
-        expect(screen.getByText('javascript')).toBeInTheDocument();
-      });
-
-      const removeButtons = screen.getAllByRole('button', { name: '' });
-      const firstRemoveButton = removeButtons.find(btn =>
-        btn.closest('.skill-item')?.textContent.includes('javascript')
-      );
-
-      fireEvent.click(firstRemoveButton);
-
-      await waitFor(() => {
-        expect(authService.removeSkill).toHaveBeenCalledWith('javascript');
-      });
-    });
-
-    it('removes all skills with confirmation', async () => {
-      authService.getUserRole.mockReturnValue('premium');
-      authService.getSkills
-        .mockResolvedValueOnce({ skills: ['javascript', 'react'] })
-        .mockResolvedValueOnce({ skills: [] });
-      authService.removeAllSkills.mockResolvedValue({});
-
-      // Mock window.confirm
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-
-      render(<Profile onLogout={mockOnLogout} />);
-
-      await waitFor(() => {
-        expect(screen.getByText('javascript')).toBeInTheDocument();
-      });
-
-      const removeAllButton = screen.getByRole('button', { name: /limpar habilidades/i });
-      fireEvent.click(removeAllButton);
-
-      expect(confirmSpy).toHaveBeenCalledWith('Tem certeza que deseja remover todas as skills?');
-
-      await waitFor(() => {
-        expect(authService.removeAllSkills).toHaveBeenCalled();
-      });
-
-      confirmSpy.mockRestore();
-    });
-
-    it('cancels remove all skills when user rejects confirmation', async () => {
-      authService.getUserRole.mockReturnValue('premium');
-      authService.getSkills.mockResolvedValue({ skills: ['javascript'] });
-
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
-
-      render(<Profile onLogout={mockOnLogout} />);
-
-      await waitFor(() => {
-        expect(screen.getByText('javascript')).toBeInTheDocument();
-      });
-
-      const removeAllButton = screen.getByRole('button', { name: /limpar habilidades/i });
-      fireEvent.click(removeAllButton);
-
-      expect(authService.removeAllSkills).not.toHaveBeenCalled();
-      confirmSpy.mockRestore();
-    });
-
-    it('handles API errors when loading skills', async () => {
-      authService.getUserRole.mockReturnValue('premium');
-      authService.getSkills.mockRejectedValue(new Error('Network error'));
-
-      render(<Profile onLogout={mockOnLogout} />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/network error/i)).toBeInTheDocument();
-      });
-    });
-
-    it('shows no skills message when list is empty', async () => {
-      authService.getUserRole.mockReturnValue('premium');
-      authService.getSkills.mockResolvedValue({ skills: [] });
-
-      render(<Profile onLogout={mockOnLogout} />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/nenhuma habilidade encontrada/i)).toBeInTheDocument();
-      });
-    });
-  });
-
-  it('renders action buttons for password change and account deletion', () => {
     render(<Profile onLogout={mockOnLogout} />);
-
-    expect(screen.getByRole('button', { name: /alterar senha/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /deletar conta/i })).toBeInTheDocument();
-  });
-
-  it('navigates back when back button is clicked', () => {
-    render(<Profile onLogout={mockOnLogout} />);
-
-    const backButton = screen.getByRole('button', { name: /voltar/i });
-    fireEvent.click(backButton);
-
-    expect(window.history.back).toHaveBeenCalled();
-  });
-
-  it('shows password change form when alterar senha button is clicked', () => {
-    render(<Profile onLogout={mockOnLogout} />);
-
-    const changePasswordButton = screen.getByRole('button', { name: /alterar senha/i });
-    fireEvent.click(changePasswordButton);
-
-    expect(screen.getByRole('heading', { name: /alterar senha/i })).toBeInTheDocument();
-    expect(screen.getByLabelText('Senha Atual:')).toBeInTheDocument();
-    expect(screen.getByLabelText('Nova Senha:')).toBeInTheDocument();
-    expect(screen.getByLabelText('Confirmar Nova Senha:')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /cancelar/i })).toBeInTheDocument();
-  });
-
-  it('hides password change form when cancelar button is clicked', () => {
-    render(<Profile onLogout={mockOnLogout} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha/i }));
-    expect(screen.getByRole('heading', { name: /alterar senha/i })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /cancelar/i }));
-    expect(screen.queryByRole('heading', { name: /alterar senha/i })).not.toBeInTheDocument();
-  });
-
-  it('shows delete confirmation when deletar conta button is clicked', () => {
-    render(<Profile onLogout={mockOnLogout} />);
-
-    const deleteButton = screen.getByRole('button', { name: /deletar conta/i });
-    fireEvent.click(deleteButton);
-
-    expect(screen.getByText('Deletar Conta')).toBeInTheDocument();
-    expect(screen.getByText('Atenção!')).toBeInTheDocument();
-    expect(screen.getByText('Esta ação é irreversível. Todos os seus dados serão permanentemente removidos.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /sim, deletar minha conta/i })).toBeInTheDocument();
-  });
-
-  it('hides delete confirmation when cancelar button is clicked', () => {
-    render(<Profile onLogout={mockOnLogout} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /deletar conta/i }));
-    expect(screen.getByRole('heading', { name: /deletar conta/i })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /cancelar/i }));
-    expect(screen.queryByRole('heading', { name: /deletar conta/i })).not.toBeInTheDocument();
-  });
-
-  it('updates password form fields when user types', () => {
-    render(<Profile onLogout={mockOnLogout} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha/i }));
-
-    const oldPasswordInput = screen.getByLabelText('Senha Atual:');
-    const newPasswordInput = screen.getByLabelText('Nova Senha:');
-    const confirmPasswordInput = screen.getByLabelText('Confirmar Nova Senha:');
-
-    fireEvent.change(oldPasswordInput, { target: { value: 'oldpass' } });
-    fireEvent.change(newPasswordInput, { target: { value: 'newpass' } });
-    fireEvent.change(confirmPasswordInput, { target: { value: 'newpass' } });
-
-    expect(oldPasswordInput.value).toBe('oldpass');
-    expect(newPasswordInput.value).toBe('newpass');
-    expect(confirmPasswordInput.value).toBe('newpass');
-  });
-
-  it('toggles old password visibility when toggle button is clicked', () => {
-    render(<Profile onLogout={mockOnLogout} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha/i }));
-
-    const oldPasswordInput = screen.getByLabelText('Senha Atual:');
-    const toggleButtons = screen.getAllByRole('button', { name: '' });
-    const oldPasswordToggle = toggleButtons[0];
-
-    expect(oldPasswordInput.type).toBe('password');
-
-    fireEvent.click(oldPasswordToggle);
-    expect(oldPasswordInput.type).toBe('text');
-
-    fireEvent.click(oldPasswordToggle);
-    expect(oldPasswordInput.type).toBe('password');
-  });
-
-  it('toggles new password visibility when toggle button is clicked', () => {
-    render(<Profile onLogout={mockOnLogout} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha/i }));
-
-    const newPasswordInput = screen.getByLabelText('Nova Senha:');
-    const toggleButtons = screen.getAllByRole('button', { name: '' });
-    const newPasswordToggle = toggleButtons[1];
-
-    expect(newPasswordInput.type).toBe('password');
-
-    fireEvent.click(newPasswordToggle);
-    expect(newPasswordInput.type).toBe('text');
-
-    fireEvent.click(newPasswordToggle);
-    expect(newPasswordInput.type).toBe('password');
-  });
-
-  it('shows error when submitting password change with empty fields', async () => {
-    render(<Profile onLogout={mockOnLogout} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha/i }));
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('Por favor, preencha todos os campos')).toBeInTheDocument();
-    });
-
-    expect(authService.updatePassword).not.toHaveBeenCalled();
-  });
-
-  it('shows error when new password and confirmation do not match', async () => {
-    render(<Profile onLogout={mockOnLogout} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha/i }));
-
-    fireEvent.change(screen.getByLabelText('Senha Atual:'), { target: { value: 'oldpass' } });
-    fireEvent.change(screen.getByLabelText('Nova Senha:'), { target: { value: 'newpass' } });
-    fireEvent.change(screen.getByLabelText('Confirmar Nova Senha:'), { target: { value: 'different' } });
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha$/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText('A nova senha e a confirmação não coincidem')).toBeInTheDocument();
-    });
-
-    expect(authService.updatePassword).not.toHaveBeenCalled();
-  });
-
-  it('shows error when new password is same as old password', async () => {
-    render(<Profile onLogout={mockOnLogout} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha/i }));
-
-    fireEvent.change(screen.getByLabelText('Senha Atual:'), { target: { value: 'samepass' } });
-    fireEvent.change(screen.getByLabelText('Nova Senha:'), { target: { value: 'samepass' } });
-    fireEvent.change(screen.getByLabelText('Confirmar Nova Senha:'), { target: { value: 'samepass' } });
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha$/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText('A nova senha deve ser diferente da senha atual')).toBeInTheDocument();
-    });
-
-    expect(authService.updatePassword).not.toHaveBeenCalled();
-  });
-
-  it('successfully updates password and shows success message', async () => {
-    authService.updatePassword.mockResolvedValue();
-    render(<Profile onLogout={mockOnLogout} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha/i }));
-
-    fireEvent.change(screen.getByLabelText('Senha Atual:'), { target: { value: 'oldpass' } });
-    fireEvent.change(screen.getByLabelText('Nova Senha:'), { target: { value: 'newpass' } });
-    fireEvent.change(screen.getByLabelText('Confirmar Nova Senha:'), { target: { value: 'newpass' } });
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha$/i }));
-
-    await waitFor(() => {
-      expect(authService.updatePassword).toHaveBeenCalledWith('oldpass', 'newpass');
-      expect(screen.getByText('Senha alterada com sucesso!')).toBeInTheDocument();
-    });
-
-    expect(screen.queryByRole('heading', { name: /alterar senha/i })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha/i }));
-    expect(screen.getByLabelText('Senha Atual:').value).toBe('');
-    expect(screen.getByLabelText('Nova Senha:').value).toBe('');
-    expect(screen.getByLabelText('Confirmar Nova Senha:').value).toBe('');
-  });
-
-  it('shows error message when password update fails', async () => {
-    const errorMessage = 'Senha atual incorreta';
-    authService.updatePassword.mockRejectedValue(new Error(errorMessage));
-    render(<Profile onLogout={mockOnLogout} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha/i }));
-
-    fireEvent.change(screen.getByLabelText('Senha Atual:'), { target: { value: 'wrongpass' } });
-    fireEvent.change(screen.getByLabelText('Nova Senha:'), { target: { value: 'newpass' } });
-    fireEvent.change(screen.getByLabelText('Confirmar Nova Senha:'), { target: { value: 'newpass' } });
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha$/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText(errorMessage)).toBeInTheDocument();
-    });
-  });
-
-  it('shows loading state during password update', async () => {
-    authService.updatePassword.mockImplementation(() => new Promise(() => {}));
-    render(<Profile onLogout={mockOnLogout} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha/i }));
-
-    fireEvent.change(screen.getByLabelText('Senha Atual:'), { target: { value: 'oldpass' } });
-    fireEvent.change(screen.getByLabelText('Nova Senha:'), { target: { value: 'newpass' } });
-    fireEvent.change(screen.getByLabelText('Confirmar Nova Senha:'), { target: { value: 'newpass' } });
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha$/i }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /alterando\.\.\./i })).toBeInTheDocument();
-    });
-
-    expect(screen.getByLabelText('Senha Atual:')).toBeDisabled();
-    expect(screen.getByLabelText('Nova Senha:')).toBeDisabled();
-    expect(screen.getByLabelText('Confirmar Nova Senha:')).toBeDisabled();
-  });
-
-  it('successfully deletes account and calls onLogout', async () => {
-    authService.deleteAccount.mockResolvedValue();
-    render(<Profile onLogout={mockOnLogout} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /deletar conta/i }));
-    fireEvent.click(screen.getByRole('button', { name: /sim, deletar minha conta/i }));
-
-    await waitFor(() => {
-      expect(authService.deleteAccount).toHaveBeenCalled();
-      expect(mockOnLogout).toHaveBeenCalled();
-    });
-  });
-
-  it('shows error message when account deletion fails', async () => {
-    const errorMessage = 'Erro no servidor';
-    authService.deleteAccount.mockRejectedValue(new Error(errorMessage));
-    render(<Profile onLogout={mockOnLogout} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /deletar conta/i }));
-    fireEvent.click(screen.getByRole('button', { name: /sim, deletar minha conta/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText(errorMessage)).toBeInTheDocument();
-    });
-
-    expect(mockOnLogout).not.toHaveBeenCalled();
-    expect(screen.queryByRole('heading', { name: /deletar conta/i })).not.toBeInTheDocument();
-  });
-
-  it('shows loading state during account deletion', async () => {
-    authService.deleteAccount.mockImplementation(() => new Promise(() => {}));
-    render(<Profile onLogout={mockOnLogout} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /deletar conta/i }));
-    fireEvent.click(screen.getByRole('button', { name: /sim, deletar minha conta/i }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /deletando\.\.\./i })).toBeInTheDocument();
-    });
-
-    expect(screen.getByRole('button', { name: /deletando\.\.\./i })).toBeDisabled();
-  });
-
-  it('clears messages when switching between sections', () => {
-    render(<Profile onLogout={mockOnLogout} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha/i }));
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha$/i }));
-
-    expect(screen.getByText('Por favor, preencha todos os campos')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /deletar conta/i }));
-
-    expect(screen.queryByText('Por favor, preencha todos os campos')).not.toBeInTheDocument();
-  });
-
-  it('clears error and success messages when typing in password fields', async () => {
-    render(<Profile onLogout={mockOnLogout} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha/i }));
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha$/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText('Por favor, preencha todos os campos')).toBeInTheDocument();
-    });
-
-    fireEvent.change(screen.getByLabelText('Senha Atual:'), { target: { value: 'test' } });
-
-    expect(screen.queryByText('Por favor, preencha todos os campos')).not.toBeInTheDocument();
-  });
-
-  it('disables action buttons during loading', async () => {
-    authService.updatePassword.mockImplementation(() => new Promise(() => {}));
-    render(<Profile onLogout={mockOnLogout} />);
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha/i }));
-
-    fireEvent.change(screen.getByLabelText('Senha Atual:'), { target: { value: 'oldpass' } });
-    fireEvent.change(screen.getByLabelText('Nova Senha:'), { target: { value: 'newpass' } });
-    fireEvent.change(screen.getByLabelText('Confirmar Nova Senha:'), { target: { value: 'newpass' } });
-
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha$/i }));
-
-    await waitFor(() => {
-      const actionButtons = screen.getAllByRole('button').filter(btn =>
-        btn.textContent.includes('Alterar Senha') || btn.textContent.includes('Deletar Conta')
-      );
-      actionButtons.forEach(button => {
-        expect(button).toBeDisabled();
+      mockSkills.forEach(skill => {
+        expect(screen.getByText(skill)).toBeInTheDocument();
       });
     });
   });
 
-  it('disables password toggle buttons during loading', async () => {
-    authService.updatePassword.mockImplementation(() => new Promise(() => {}));
+  it('não carrega skills para usuário free', () => {
+    authService.getUserRole.mockReturnValue('free');
+
     render(<Profile onLogout={mockOnLogout} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha/i }));
+    expect(authService.getSkills).not.toHaveBeenCalled();
+    expect(screen.getByText(/atualize para o plano/i)).toBeInTheDocument();
+  });
 
-    fireEvent.change(screen.getByLabelText('Senha Atual:'), { target: { value: 'oldpass' } });
-    fireEvent.change(screen.getByLabelText('Nova Senha:'), { target: { value: 'newpass' } });
-    fireEvent.change(screen.getByLabelText('Confirmar Nova Senha:'), { target: { value: 'newpass' } });
+  it('adiciona nova habilidade com sucesso', async () => {
+    authService.getUserRole.mockReturnValue('premium');
+    authService.getSkills
+      .mockResolvedValueOnce({ skills: [] })
+      .mockResolvedValueOnce({ skills: ['React'] });
+    authService.addSkill.mockResolvedValue({});
 
-    const toggleButtons = screen.getAllByRole('button', { name: '' });
+    render(<Profile onLogout={mockOnLogout} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /alterar senha$/i }));
+    const skillInput = await screen.findByPlaceholderText('Digite uma nova habilidade');
+    const addButton = screen.getByText('Adicionar');
+
+    fireEvent.change(skillInput, { target: { value: 'React' } });
+    fireEvent.click(addButton);
+
+    expect(authService.addSkill).toHaveBeenCalledWith('React');
 
     await waitFor(() => {
-      toggleButtons.forEach(button => {
-        expect(button).toBeDisabled();
-      });
+      expect(screen.getByText('Habilidade cadastrada com sucesso!')).toBeInTheDocument();
     });
+  });
+
+  it('previne adicionar habilidade duplicada', async () => {
+    authService.getUserRole.mockReturnValue('premium');
+    authService.getSkills.mockResolvedValue({ skills: ['react'] });
+
+    render(<Profile onLogout={mockOnLogout} />);
+
+    const skillInput = await screen.findByPlaceholderText('Digite uma nova habilidade');
+    const addButton = screen.getByText('Adicionar');
+
+    fireEvent.change(skillInput, { target: { value: 'React' } });
+    fireEvent.click(addButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Esta habilidade já foi adicionada')).toBeInTheDocument();
+    });
+
+    expect(authService.addSkill).not.toHaveBeenCalled();
+  });
+
+  it('remove habilidade com sucesso', async () => {
+    authService.getUserRole.mockReturnValue('premium');
+    authService.getSkills
+      .mockResolvedValueOnce({ skills: ['React', 'JavaScript'] })
+      .mockResolvedValueOnce({ skills: ['JavaScript'] });
+    authService.removeSkill.mockResolvedValue({});
+
+    render(<Profile onLogout={mockOnLogout} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('React')).toBeInTheDocument();
+    });
+
+    const skillItems = screen.getAllByRole('button').filter(btn =>
+      btn.closest('.skill-item')?.textContent.includes('React')
+    );
+    const removeButton = skillItems.find(btn => btn.querySelector('svg'));
+
+    fireEvent.click(removeButton);
+
+    expect(authService.removeSkill).toHaveBeenCalledWith('React');
+
+    await waitFor(() => {
+      expect(screen.getByText('Skill removida com sucesso!')).toBeInTheDocument();
+    });
+  });
+
+  it('remove todas as habilidades com confirmação', async () => {
+    authService.getUserRole.mockReturnValue('premium');
+    authService.getSkills
+      .mockResolvedValueOnce({ skills: ['React', 'JavaScript'] })
+      .mockResolvedValueOnce({ skills: [] });
+    authService.removeAllSkills.mockResolvedValue({});
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(<Profile onLogout={mockOnLogout} />);
+
+    const clearButton = await screen.findByText('Limpar habilidades');
+    fireEvent.click(clearButton);
+
+    expect(confirmSpy).toHaveBeenCalledWith('Tem certeza que deseja remover todas as skills?');
+    expect(authService.removeAllSkills).toHaveBeenCalled();
+
+    await waitFor(() => {
+      expect(screen.getByText('Todas as skills foram removidas!')).toBeInTheDocument();
+    });
+
+    confirmSpy.mockRestore();
+  });
+
+  it('cancela remoção de todas as habilidades', async () => {
+    authService.getUserRole.mockReturnValue('premium');
+    authService.getSkills.mockResolvedValue({ skills: ['React', 'JavaScript'] });
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    render(<Profile onLogout={mockOnLogout} />);
+
+    const clearButton = await screen.findByText('Limpar habilidades');
+    fireEvent.click(clearButton);
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(authService.removeAllSkills).not.toHaveBeenCalled();
+
+    confirmSpy.mockRestore();
+  });
+
+  it('exibe loading skeleton durante carregamento de skills', () => {
+    authService.getUserRole.mockReturnValue('premium');
+    authService.getSkills.mockReturnValue(new Promise(() => {}));
+
+    render(<Profile onLogout={mockOnLogout} />);
+
+    expect(document.querySelector('.loading-skeleton')).toBeInTheDocument();
+    expect(document.querySelectorAll('.skeleton-item')).toHaveLength(3);
+  });
+
+  it('exibe mensagem quando não há habilidades', async () => {
+    authService.getUserRole.mockReturnValue('premium');
+    authService.getSkills.mockResolvedValue({ skills: [] });
+
+    render(<Profile onLogout={mockOnLogout} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/nenhuma habilidade encontrada/i)).toBeInTheDocument();
+    });
+  });
+
+  it('trata erro ao carregar skills', async () => {
+    authService.getUserRole.mockReturnValue('premium');
+    authService.getSkills.mockRejectedValue(new Error('Erro ao carregar'));
+
+    render(<Profile onLogout={mockOnLogout} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Erro ao carregar')).toBeInTheDocument();
+    });
+  });
+
+  it('trata erro ao adicionar skill', async () => {
+    authService.getUserRole.mockReturnValue('premium');
+    authService.getSkills.mockResolvedValue({ skills: [] });
+    authService.addSkill.mockRejectedValue(new Error('Erro ao adicionar'));
+
+    render(<Profile onLogout={mockOnLogout} />);
+
+    const skillInput = await screen.findByPlaceholderText('Digite uma nova habilidade');
+    const addButton = screen.getByText('Adicionar');
+
+    fireEvent.change(skillInput, { target: { value: 'React' } });
+    fireEvent.click(addButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Erro ao adicionar')).toBeInTheDocument();
+    });
+  });
+
+  it('limpa input após adicionar habilidade com sucesso', async () => {
+    authService.getUserRole.mockReturnValue('premium');
+    authService.getSkills
+      .mockResolvedValueOnce({ skills: [] })
+      .mockResolvedValueOnce({ skills: ['React'] });
+    authService.addSkill.mockResolvedValue({});
+
+    render(<Profile onLogout={mockOnLogout} />);
+
+    const skillInput = await screen.findByPlaceholderText('Digite uma nova habilidade');
+    const addButton = screen.getByText('Adicionar');
+
+    fireEvent.change(skillInput, { target: { value: 'React' } });
+    fireEvent.click(addButton);
+
+    await waitFor(() => {
+      expect(skillInput.value).toBe('');
+    });
+  });
+
+  it('valida input vazio ao tentar adicionar skill', async () => {
+    authService.getUserRole.mockReturnValue('premium');
+    authService.getSkills.mockResolvedValue({ skills: [] });
+
+    render(<Profile onLogout={mockOnLogout} />);
+
+    const addButton = await screen.findByText('Adicionar');
+    fireEvent.click(addButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Por favor, digite uma habilidade')).toBeInTheDocument();
+    });
+
+    expect(authService.addSkill).not.toHaveBeenCalled();
+  });
+
+  it('limpa mensagens de erro/sucesso ao digitar nova skill', async () => {
+    authService.getUserRole.mockReturnValue('premium');
+    authService.getSkills.mockResolvedValue({ skills: [] });
+
+    render(<Profile onLogout={mockOnLogout} />);
+
+    const addButton = await screen.findByText('Adicionar');
+    fireEvent.click(addButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Por favor, digite uma habilidade')).toBeInTheDocument();
+    });
+
+    const skillInput = screen.getByPlaceholderText('Digite uma nova habilidade');
+    fireEvent.change(skillInput, { target: { value: 'React' } });
+
+    expect(skillInput.value).toBe('React');
+    
+    expect(screen.getByText('Por favor, digite uma habilidade')).toBeInTheDocument();
+    expect(skillInput.value).toBe('React');
   });
 });

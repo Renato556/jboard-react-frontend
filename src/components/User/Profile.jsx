@@ -46,12 +46,12 @@ const Profile = ({ onLogout }) => {
     e.preventDefault();
     
     if (!newSkill.trim()) {
-      setError('Por favor, digite uma skill');
+      setError('Por favor, digite uma habilidade');
       return;
     }
 
     if (skills.includes(newSkill.trim().toLowerCase())) {
-      setError('Esta skill já foi adicionada');
+      setError('Esta habilidade já foi adicionada');
       return;
     }
 
@@ -61,7 +61,7 @@ const Profile = ({ onLogout }) => {
       await authService.addSkill(newSkill.trim());
       await loadSkills();
       setNewSkill('');
-      setSuccessMessage('Skill adicionada com sucesso!');
+      setSuccessMessage('Habilidade cadastrada com sucesso!');
     } catch (err) {
       setError(err.message);
     } finally {
