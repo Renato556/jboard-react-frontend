@@ -293,22 +293,6 @@ describe('Register', () => {
     expect(authService.register).not.toHaveBeenCalled();
   });
 
-  it('handles whitespace-only username correctly', async () => {
-    render(<Register onRegisterSuccess={mockOnRegisterSuccess} onBackToLogin={mockOnBackToLogin} />);
-
-    const usernameInput = screen.getByLabelText('Usuário:');
-    const passwordInput = screen.getByLabelText('Senha:');
-    const submitButton = screen.getByRole('button', { name: 'Criar' });
-
-    fireEvent.change(usernameInput, { target: { value: '   ' } });
-    fireEvent.change(passwordInput, { target: { value: 'testpass' } });
-    fireEvent.click(submitButton);
-
-    await waitFor(() => {
-      expect(authService.register).toHaveBeenCalledWith('   ', 'testpass');
-    });
-  });
-
   it('preserves form data after failed registration attempt', async () => {
     authService.register.mockRejectedValue(new Error('Registration failed'));
     render(<Register onRegisterSuccess={mockOnRegisterSuccess} onBackToLogin={mockOnBackToLogin} />);

@@ -13,13 +13,46 @@ const Login = ({ onLoginSuccess }) => {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({
+    username: '',
+    password: ''
+  });
+
+  const validateField = (name, value) => {
+    const errors = { ...validationErrors };
+
+    if (name === 'username') {
+      if (value.includes(' ')) {
+        errors.username = 'O nome de usuário não pode conter espaços';
+      } else {
+        errors.username = '';
+      }
+    }
+
+    if (name === 'password') {
+      if (value.includes(' ')) {
+        errors.password = 'A senha não pode conter espaços';
+      } else {
+        errors.password = '';
+      }
+    }
+
+    setValidationErrors(errors);
+    return !errors.username && !errors.password;
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+
+    // Remove espaços automaticamente se o usuário tentar digitar
+    const cleanValue = value.replace(/\s/g, '');
+
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: cleanValue
     }));
+
+    validateField(name, cleanValue);
     if (error) setError('');
     if (successMessage) setSuccessMessage('');
   };
@@ -29,6 +62,23 @@ const Login = ({ onLoginSuccess }) => {
 
     if (!formData.username || !formData.password) {
       setError('Por favor, preencha todos os campos');
+      return;
+    }
+
+    // Validação adicional antes de submeter
+    if (formData.username.includes(' ')) {
+      setError('O nome de usuário não pode conter espaços');
+      return;
+    }
+
+    if (formData.password.includes(' ')) {
+      setError('A senha não pode conter espaços');
+      return;
+    }
+
+    // Verificar se há erros de validação
+    if (validationErrors.username || validationErrors.password) {
+      setError('Por favor, corrija os erros antes de continuar');
       return;
     }
 
@@ -87,6 +137,9 @@ const Login = ({ onLoginSuccess }) => {
               disabled={isLoading}
               placeholder="Digite seu usuário"
             />
+            {validationErrors.username && (
+              <div className="field-error">{validationErrors.username}</div>
+            )}
           </div>
 
           <div className="form-group">
@@ -121,6 +174,9 @@ const Login = ({ onLoginSuccess }) => {
                 )}
               </button>
             </div>
+            {validationErrors.password && (
+              <div className="field-error">{validationErrors.password}</div>
+            )}
           </div>
 
           {error && <div className="error-message">{error}</div>}
