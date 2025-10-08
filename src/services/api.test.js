@@ -84,7 +84,7 @@ describe('API Service', () => {
 
     expect(mockAxios.create).toHaveBeenCalledWith({
       baseURL: 'http://localhost:8081',
-      timeout: 30000,
+      timeout: 120000,
       headers: {
         'Content-Type': 'application/json'
       }

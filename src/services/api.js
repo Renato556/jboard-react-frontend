@@ -4,7 +4,7 @@ import { authService } from './auth.js';
 
 const api = axios.create({
   baseURL: API_CONFIG.BASE_URL,
-  timeout: 30000,
+  timeout: 120000,
   headers: {
     'Content-Type': 'application/json'
   }
