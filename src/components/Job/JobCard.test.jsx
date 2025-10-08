@@ -53,7 +53,6 @@ describe('JobCard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    global.open = vi.fn();
     document.body.innerHTML = '';
     document.body.className = '';
   });
